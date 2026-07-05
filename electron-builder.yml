@@ -1,0 +1,12 @@
+appId: org.coachcurtis.fortress-code
+productName: Fortress Code
+directories: { output: release }
+files:
+  - dist/**
+  - renderer/**
+  - src/preload.cjs
+  - package.json
+mac:
+  target: [{ target: dmg, arch: [arm64] }]
+  category: public.app-category.developer-tools
+  identity: null   # unsigned
