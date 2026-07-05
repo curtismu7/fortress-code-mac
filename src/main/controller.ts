@@ -12,6 +12,9 @@ import { resolveDevTarget } from '../../vendor/fortress-code/packages/extension/
 import { DEV_PRESETS } from '../../vendor/fortress-code/packages/extension/src/devPresets';
 import { streamChat, type Usage } from '../../vendor/fortress-code/packages/extension/src/providers/stream';
 import { buildContextPreamble, parseMentions, capContent, type ChatContext, type AttachedFile } from '../../vendor/fortress-code/packages/extension/src/context';
+import { Prefs } from '../../vendor/fortress-code/packages/extension/src/prefs';
+import { searchChats } from '../../vendor/fortress-code/packages/extension/src/chatSearch';
+import { exportMarkdown } from '../../vendor/fortress-code/packages/extension/src/exportChat';
 import { FileMemento } from './fileMemento';
 import { SecretStore, OPENROUTER_KEY_ID, FIREWORKS_KEY_ID } from './secrets';
 
@@ -31,6 +34,7 @@ export interface ControllerDeps {
   connect: () => Promise<DaemonClient>;        // ensureDaemon(dist/manager/index.js)
   post: (msg: unknown) => void;                // webContents.send bridge
   openPath: (absPath: string) => Promise<void>; // shell.openPath wrapper
+  saveFile: (defaultName: string, content: string) => Promise<void>; // dialog.showSaveDialog + write wrapper
   secrets: SecretStore;
 }
 
@@ -40,6 +44,7 @@ export class ChatController {
   private rag: RagService | null = null;
   private store: SessionStore;
   private settings: FileMemento;
+  private prefs: Prefs;
   private generating: AbortController | null = null;
   private selected: PolicyEntry | null = null;
   private devMode = false;
@@ -52,6 +57,7 @@ export class ChatController {
   constructor(private deps: ControllerDeps) {
     this.store = SessionStore.load(new FileMemento(join(deps.userDataDir, 'sessions.json')));
     this.settings = new FileMemento(join(deps.userDataDir, 'settings.json'));
+    this.prefs = new Prefs(new FileMemento(join(deps.userDataDir, 'prefs.json')));
     this.devMode = !!this.settings.get(DEV_MODE_KEY);
   }
 
@@ -81,6 +87,7 @@ export class ChatController {
     try {
       this.client = await this.deps.connect();
       this.post({ type: 'policy', local: localEntries(), openrouter: loadPolicy().filter((e) => e.provider === 'openrouter') });
+      this.post({ type: 'prefs', prompts: this.prefs.prompts(), params: this.prefs.params() });
       this.post({ type: 'openRouterKeySet', set: !!this.deps.secrets.get(OPENROUTER_KEY_ID) });
       await this.postDev();
       this.post({ type: 'history', messages: this.store.active().messages });
@@ -245,6 +252,17 @@ export class ChatController {
           }
           return;
         }
+        case 'savePrompt': this.prefs.savePrompt(m.prompt); this.post({ type: 'prefs', prompts: this.prefs.prompts(), params: this.prefs.params() }); return;
+        case 'deletePrompt': this.prefs.deletePrompt(String(m.id)); this.post({ type: 'prefs', prompts: this.prefs.prompts(), params: this.prefs.params() }); return;
+        case 'setParams': this.prefs.setParams(m.params ?? {}); this.post({ type: 'prefs', prompts: this.prefs.prompts(), params: this.prefs.params() }); return;
+        case 'forkChat': this.generating?.abort(); this.store.fork(Number(m.index)); this.post({ type: 'history', messages: this.store.active().messages }); this.postChats(); return;
+        case 'searchChats': this.post({ type: 'searchResults', metas: searchChats(String(m.query ?? ''), this.store.metas(), this.store.messagesById()) }); return;
+        case 'exportChat': {
+          const title = this.store.metas().find((x) => x.id === this.store.activeId)?.title ?? 'Chat';
+          const md = exportMarkdown(title, this.store.active().messages, new Date());
+          await this.deps.saveFile(title.replace(/[^\w-]+/g, '-') + '.md', md);
+          return;
+        }
       }
     } catch (e) {
       this.banner(String(e));
@@ -308,6 +326,8 @@ export class ChatController {
       this.post({ type: 'restoreInput', text });
       return;
     }
+    const params = this.prefs.params();
+    if (Object.keys(params).length) target = { ...target, bodyExtra: { ...target.bodyExtra, ...params } };
     const session = this.store.active();
     const ctx = await this.collectContext(text);
     const preamble = buildContextPreamble(ctx);

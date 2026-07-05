@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, shell, safeStorage } from 'electron';
 import { join } from 'node:path';
+import { writeFileSync } from 'node:fs';
 import { ensureDaemon } from '../../vendor/fortress-code/packages/extension/src/daemon';
 import { ChatController } from './controller';
 import { SecretStore } from './secrets';
@@ -26,6 +27,10 @@ app.whenReady().then(async () => {
     connect: () => ensureDaemon(join(__dirname, 'manager', 'index.js')),
     post: (m) => win.webContents.send('fc', m),
     openPath: async (p) => { await shell.openPath(p); },
+    saveFile: async (defaultName, content) => {
+      const r = await dialog.showSaveDialog(win, { defaultPath: defaultName, filters: [{ name: 'Markdown', extensions: ['md'] }] });
+      if (r.filePath) writeFileSync(r.filePath, content, 'utf8');
+    },
     secrets,
   });
   controller.setDevMode(Boolean(settings.get('fortressCode.devMode')));
