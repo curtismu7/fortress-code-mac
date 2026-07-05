@@ -27,4 +27,22 @@ describe('FileMemento', () => {
     const re = SessionStore.load(new FileMemento(p));
     expect(re.active().messages[0]).toMatchObject({ role: 'user', content: 'hello' });
   });
+  it('two instances over the same file do not clobber each other', () => {
+    const p = join(mkdtempSync(join(tmpdir(), 'fc-mem-')), 'settings.json');
+    const a = new FileMemento(p);
+    const b = new FileMemento(p);
+    a.update('devMode', true);
+    b.update('folder', '/tmp/x');
+    const c = new FileMemento(p);
+    expect(c.get('devMode')).toBe(true);
+    expect(c.get('folder')).toBe('/tmp/x');
+  });
+  it('array-shaped corrupt file is reset safely', () => {
+    const p = join(mkdtempSync(join(tmpdir(), 'fc-mem-')), 'state.json');
+    writeFileSync(p, '[1,2,3]');
+    const m = new FileMemento(p);
+    expect(m.get('0')).toBeUndefined();
+    m.update('k', 1);
+    expect(new FileMemento(p).get('k')).toBe(1);
+  });
 });
