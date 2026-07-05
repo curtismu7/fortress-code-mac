@@ -21,4 +21,12 @@ describe('syncRenderer', () => {
     expect(readFileSync(join(out, 'vscode-shim.js'), 'utf8')).toContain('acquireVsCodeApi');
     expect(readFileSync(join(out, 'theme.css'), 'utf8')).toContain('--vscode-foreground');
   });
+
+  it('copies the vendor media subdirectory and keeps chat.js byte-identical', () => {
+    const out = mkdtempSync(join(tmpdir(), 'fc-renderer-'));
+    syncRenderer(VENDOR, out);
+    expect(readFileSync(join(out, 'chat.js'))).toEqual(readFileSync(join(VENDOR, 'chat.js')));
+    expect(readFileSync(join(out, 'vendor', 'katex.min.js'))).toEqual(readFileSync(join(VENDOR, 'vendor', 'katex.min.js')));
+    expect(readFileSync(join(out, 'vendor', 'mermaid.min.js'))).toEqual(readFileSync(join(VENDOR, 'vendor', 'mermaid.min.js')));
+  });
 });

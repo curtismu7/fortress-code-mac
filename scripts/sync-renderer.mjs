@@ -15,6 +15,7 @@ export function syncRenderer(vendorMediaDir, outDir) {
   mkdirSync(outDir, { recursive: true });
   for (const f of ['chat.js', 'chat.css']) cpSync(join(vendorMediaDir, f), join(outDir, f)); // byte-identical
   for (const f of ['vscode-shim.js', 'theme.css']) cpSync(join(HERE, '..', 'assets', f), join(outDir, f));
+  cpSync(join(vendorMediaDir, 'vendor'), join(outDir, 'vendor'), { recursive: true }); // katex/mermaid — chat.html references these via relative paths
 
   let html = readFileSync(join(vendorMediaDir, 'chat.html'), 'utf8');
 
