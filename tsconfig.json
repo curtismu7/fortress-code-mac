@@ -6,6 +6,6 @@
     "baseUrl": ".",
     "paths": { "@fortress-code/shared": ["vendor/fortress-code/packages/shared/src/index.ts"] }
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "vendor/fortress-code/packages/shared/src/**/*.ts", "vendor/fortress-code/packages/extension/src/**/*.ts"],
-  "exclude": ["vendor/fortress-code/packages/extension/src/extension.ts", "vendor/fortress-code/packages/extension/src/chat/ChatViewProvider.ts", "vendor/fortress-code/packages/extension/src/chat/session.ts", "vendor/fortress-code/packages/extension/src/inlineEdit.ts", "vendor/fortress-code/packages/extension/src/secrets.ts", "vendor/fortress-code/packages/extension/src/sessionStore.ts", "vendor/fortress-code/packages/extension/src/agent/**", "vendor/fortress-code/packages/extension/src/test/**"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "types/**/*.d.ts", "vendor/fortress-code/packages/shared/src/**/*.ts", "vendor/fortress-code/packages/extension/src/**/*.ts"],
+  "exclude": ["vendor/fortress-code/packages/extension/src/extension.ts", "vendor/fortress-code/packages/extension/src/chat/ChatViewProvider.ts", "vendor/fortress-code/packages/extension/src/inlineEdit.ts", "vendor/fortress-code/packages/extension/src/agent/**", "vendor/fortress-code/packages/extension/src/test/**"]
 }
