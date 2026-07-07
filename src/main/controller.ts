@@ -1,7 +1,7 @@
 import { readFileSync, watch, writeFileSync, type FSWatcher } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { loadPolicy, visibleLocalEntries, hiddenLocalEntries, explainBlock, formatPolicyFatal, type PolicyEntry, type StatusResponse } from '@fortress-chat/shared';
+import { loadPolicy, visibleLocalEntries, hiddenLocalEntries, googleEntries, explainBlock, formatPolicyFatal, type PolicyEntry, type StatusResponse } from '@fortress-chat/shared';
 import { DaemonClient } from '../../vendor/fortress-chat/packages/extension/src/daemon';
 import { RagService } from '../../vendor/fortress-chat/packages/extension/src/rag/service';
 import { Debouncer } from '../../vendor/fortress-chat/packages/extension/src/rag/watcher';
@@ -27,7 +27,7 @@ import { AgentCheckpoint } from '../../vendor/fortress-chat/packages/extension/s
 import { mentionCandidates } from '../../vendor/fortress-chat/packages/extension/src/mentionFiles';
 import { discoverSkills, DEFAULT_SKILL_DIRS, type Skill } from '../../vendor/fortress-chat/packages/extension/src/skills';
 import { FileMemento } from './fileMemento';
-import { SecretStore, OPENROUTER_KEY_ID, FIREWORKS_KEY_ID } from './secrets';
+import { SecretStore, OPENROUTER_KEY_ID, FIREWORKS_KEY_ID, GOOGLE_KEY_ID } from './secrets';
 import { executeMacTool, resolveInWorkspace } from './macTools';
 
 const SYSTEM_PROMPT = 'You are Fortress Code, a helpful local coding assistant.';
@@ -206,7 +206,7 @@ export class ChatController {
   }
 
   private async pushFullState(): Promise<void> {
-    this.post({ type: 'policy', local: visibleLocalEntries(), hidden: hiddenLocalEntries(), openrouter: [] });
+    this.post({ type: 'policy', local: visibleLocalEntries(), hidden: hiddenLocalEntries(), google: googleEntries(), openrouter: [] });
     this.post({ type: 'prefs', prompts: this.prefs.prompts(), params: this.prefs.params() });
     this.post({ type: 'personas', personas: this.prefs.personas() });
     this.post({ type: 'skills', skills: this.skills });
@@ -216,6 +216,7 @@ export class ChatController {
     this.post({ type: 'docsStatus', stats: this.docsService().stats() });
     this.postMcpStatus();
     this.post({ type: 'openRouterKeySet', set: !!this.deps.secrets.get(OPENROUTER_KEY_ID) });
+    this.post({ type: 'googleKeySet', set: !!this.deps.secrets.get(GOOGLE_KEY_ID) });
     await this.postDev();
     this.post({ type: 'history', messages: this.store.active().messages });
     this.postChats();
@@ -228,7 +229,14 @@ export class ChatController {
   async init(): Promise<void> {
     try {
       this.sanitizeLocalUsOnly();
-      this.client = await this.deps.connect();
+      try {
+        this.client = await this.deps.connect();
+      } catch (e) {
+        if (!this.deps.secrets.get(GOOGLE_KEY_ID)) {
+          this.banner(`Could not start the Fortress Code daemon: ${e}`);
+          return;
+        }
+      }
       this.poller = setInterval(() => void this.pushStatus(), 2000);
       this.refreshSkills();
       this.startSkillsWatcher();
@@ -281,7 +289,7 @@ export class ChatController {
       this.devModel = null;
       this.deps.settings.update(DEV_MODE_KEY, false);
     }
-    if (this.selected?.provider !== 'local') this.selected = null;
+    if (this.selected?.provider !== 'local' && this.selected?.provider !== 'google') this.selected = null;
   }
 
   private async postDev(): Promise<void> {
@@ -295,6 +303,7 @@ export class ChatController {
   private postContextWindow(): void {
     let tokens = 8192;
     if (this.selected?.provider === 'openrouter') tokens = this.selected.openrouter?.contextLength ?? 8192;
+    else if (this.selected?.provider === 'google') tokens = this.selected.google?.contextLength ?? 8192;
     this.post({ type: 'contextWindow', tokens });
   }
 
@@ -339,8 +348,37 @@ export class ChatController {
     return { file: null, selection: null, mentions, codebase, docs, images };
   }
 
-  private async pushStatus(): Promise<void> {
+  private cloudFallbackStatus(): StatusResponse {
+    return {
+      state: 'idle',
+      modelId: null,
+      endpoint: null,
+      download: null,
+      crashLog: null,
+      ram: { totalBytes: 0, availableBytes: 0 },
+      binaryInstalled: false,
+      downloadedModelIds: [],
+      downloadError: null,
+      embed: { state: 'idle', modelId: null, endpoint: null },
+    };
+  }
+
+  /** Unload the local chat llama-server when switching to cloud routing. */
+  private async unloadLocalModel(): Promise<void> {
     if (!this.client) return;
+    try {
+      const status = await this.client.status();
+      if (status.state === 'ready' || status.state === 'loading-model' || status.state === 'starting') {
+        await this.client.stop();
+      }
+    } catch { /* daemon gone */ }
+  }
+
+  private async pushStatus(): Promise<void> {
+    if (!this.client) {
+      this.post({ type: 'state', status: this.cloudFallbackStatus(), selectedId: this.selected?.id ?? null });
+      return;
+    }
     try {
       const status: StatusResponse = await this.client.status();
       this.post({ type: 'state', status, selectedId: this.selected?.id ?? null });
@@ -456,6 +494,10 @@ export class ChatController {
         case 'addModel': return this.handleAddModel(String(m.slug));
         case 'setOpenRouterKey':
           return this.stopForPolicyViolation('Cloud models are not allowed.');
+        case 'setGoogleKey':
+          this.deps.secrets.set(GOOGLE_KEY_ID, String(m.key));
+          this.post({ type: 'googleKeySet', set: true });
+          return;
         case 'setFireworksKey':
           return this.stopForPolicyViolation('Developer mode and cloud models are not allowed.');
         case 'selectDevModel':
@@ -573,6 +615,8 @@ export class ChatController {
         if (msg.includes('428')) this.banner('This model needs to be downloaded first — click it to download.');
         else this.banner(msg);
       }
+    } else {
+      await this.unloadLocalModel();
     }
     await this.pushStatus();
     this.postContextWindow();
@@ -590,7 +634,11 @@ export class ChatController {
 
   private async targetDeps() {
     const status = this.client ? await this.client.status().catch(() => null) : null;
-    return { localEndpoint: status?.endpoint ?? undefined, openRouterKey: this.deps.secrets.get(OPENROUTER_KEY_ID) };
+    return {
+      localEndpoint: status?.endpoint ?? undefined,
+      openRouterKey: this.deps.secrets.get(OPENROUTER_KEY_ID),
+      googleKey: this.deps.secrets.get(GOOGLE_KEY_ID),
+    };
   }
 
   private async currentTarget(): Promise<ResolvedTarget> {
@@ -598,7 +646,7 @@ export class ChatController {
       return resolveDevTarget(this.devModel, this.deps.secrets.get(FIREWORKS_KEY_ID) ?? '');
     }
     if (this.selected) {
-      if (!this.client) this.client = await this.deps.connect();
+      if (this.selected.provider === 'local' && !this.client) this.client = await this.deps.connect();
       return resolveTarget(this.selected, await this.targetDeps());
     }
     throw new Error('Pick a model first.');

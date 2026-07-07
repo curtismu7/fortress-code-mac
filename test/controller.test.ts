@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ChatController } from '../src/main/controller';
-import { SecretStore, OPENROUTER_KEY_ID } from '../src/main/secrets';
+import { SecretStore, OPENROUTER_KEY_ID, GOOGLE_KEY_ID } from '../src/main/secrets';
 import { FileMemento } from '../src/main/fileMemento';
 
 const backend = { encryptString: (s: string) => Buffer.from(s), decryptString: (b: Buffer) => b.toString(), isEncryptionAvailable: () => true };
@@ -52,9 +52,20 @@ describe('ChatController', () => {
     const c = new ChatController(deps);
     await c.init();
     const types = posts.map((p) => p.type);
-    for (const t of ['policy', 'prefs', 'personas', 'skills', 'mcpStatus', 'openRouterKeySet', 'devMode', 'history', 'chats', 'memory', 'projectRules']) {
+    for (const t of ['policy', 'prefs', 'personas', 'skills', 'mcpStatus', 'openRouterKeySet', 'googleKeySet', 'devMode', 'history', 'chats', 'memory', 'projectRules']) {
       expect(types).toContain(t);
     }
+    const policy = posts.find((p) => p.type === 'policy');
+    expect(policy.google?.length).toBeGreaterThan(0);
+    c.dispose();
+  });
+
+  it('setGoogleKey stores key and posts googleKeySet', async () => {
+    const { deps, posts } = makeDeps();
+    const c = new ChatController(deps);
+    await c.onMessage({ type: 'setGoogleKey', key: 'AIza-test-key' });
+    expect(deps.secrets.get(GOOGLE_KEY_ID)).toBe('AIza-test-key');
+    expect(posts.at(-1)).toEqual({ type: 'googleKeySet', set: true });
     c.dispose();
   });
 

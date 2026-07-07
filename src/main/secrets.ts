@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 
 export const OPENROUTER_KEY_ID = 'fortressChat.openRouterKey';
 export const FIREWORKS_KEY_ID = 'fortressChat.fireworksKey';
+export const GOOGLE_KEY_ID = 'fortressChat.googleKey';
 
 export interface CryptoBackend {
   encryptString(s: string): Buffer;
