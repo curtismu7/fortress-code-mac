@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -47,6 +47,14 @@ function seedChat(userDataDir: string, id: string, title: string, messages: { ro
 }
 
 describe('ChatController', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true } as Response));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('init posts full state including skills, personas, mcp', async () => {
     const { deps, posts } = makeDeps();
     const c = new ChatController(deps);
@@ -74,9 +82,23 @@ describe('ChatController', () => {
   it('setGoogleKey stores key and posts googleKeySet', async () => {
     const { deps, posts } = makeDeps();
     const c = new ChatController(deps);
-    await c.onMessage({ type: 'setGoogleKey', key: 'AIza-test-key' });
-    expect(deps.secrets.get(GOOGLE_KEY_ID)).toBe('AIza-test-key');
-    expect(posts.at(-1)).toEqual({ type: 'googleKeySet', set: true });
+    await c.onMessage({ type: 'setGoogleKey', key: 'AIzaSy0123456789012345678901234567890' });
+    expect(deps.secrets.get(GOOGLE_KEY_ID)).toBe('AIzaSy0123456789012345678901234567890');
+    expect(posts.some((p) => p.type === 'googleKeySet' && p.message === 'Google API key saved and verified.')).toBe(true);
+    c.dispose();
+  });
+
+  it('setGoogleKey rejects invalid keys', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: { message: 'API key not valid.' } }),
+    } as Response);
+    const { deps, posts } = makeDeps();
+    const c = new ChatController(deps);
+    await c.onMessage({ type: 'setGoogleKey', key: 'AIzaSy0123456789012345678901234567890' });
+    expect(deps.secrets.get(GOOGLE_KEY_ID)).toBeUndefined();
+    expect(posts.filter((p) => p.type === 'googleKeySet').at(-1)).toMatchObject({ set: false, error: 'API key not valid.' });
     c.dispose();
   });
 

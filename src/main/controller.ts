@@ -28,6 +28,7 @@ import { mentionCandidates } from '../../vendor/fortress-code/packages/extension
 import { discoverSkills, DEFAULT_SKILL_DIRS, type Skill } from '../../vendor/fortress-code/packages/extension/src/skills';
 import { FileMemento } from './fileMemento';
 import { SecretStore, OPENROUTER_KEY_ID, FIREWORKS_KEY_ID, GOOGLE_KEY_ID } from './secrets';
+import { validateGoogleApiKey } from './validateGoogleKey';
 import { executeMacTool, resolveInWorkspace } from './macTools';
 
 const SYSTEM_PROMPT = 'You are Fortress Code, a helpful local coding assistant.';
@@ -216,7 +217,12 @@ export class ChatController {
     this.post({ type: 'docsStatus', stats: this.docsService().stats() });
     this.postMcpStatus();
     this.post({ type: 'openRouterKeySet', set: !!this.deps.secrets.get(OPENROUTER_KEY_ID) });
-    this.post({ type: 'googleKeySet', set: !!this.deps.secrets.get(GOOGLE_KEY_ID) });
+    const googleKeySaved = !!this.deps.secrets.get(GOOGLE_KEY_ID);
+    this.post({
+      type: 'googleKeySet',
+      set: googleKeySaved,
+      message: googleKeySaved ? 'Google API key is saved.' : undefined,
+    });
     await this.postDev();
     this.post({ type: 'history', messages: this.store.active().messages });
     this.postChats();
@@ -498,10 +504,24 @@ export class ChatController {
         case 'addModel': return this.handleAddModel(String(m.slug));
         case 'setOpenRouterKey':
           return this.stopForPolicyViolation('Cloud models are not allowed.');
-        case 'setGoogleKey':
-          this.deps.secrets.set(GOOGLE_KEY_ID, String(m.key));
-          this.post({ type: 'googleKeySet', set: true });
+        case 'setGoogleKey': {
+          const key = String(m.key ?? '').trim();
+          const result = await validateGoogleApiKey(key);
+          if (!result.ok) {
+            const saved = !!this.deps.secrets.get(GOOGLE_KEY_ID);
+            this.post({
+              type: 'googleKeySet',
+              set: saved,
+              message: saved ? 'Google API key is saved.' : undefined,
+              error: result.message,
+            });
+            return;
+          }
+          this.deps.secrets.set(GOOGLE_KEY_ID, key);
+          this.post({ type: 'googleKeySet', set: true, message: 'Google API key saved and verified.' });
+          await this.pushFullState();
           return;
+        }
         case 'setFireworksKey':
           return this.stopForPolicyViolation('Developer mode and cloud models are not allowed.');
         case 'selectDevModel':
