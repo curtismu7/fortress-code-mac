@@ -5,13 +5,15 @@ import { dirname, join, resolve } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const VENDOR = join(HERE, 'vendor/fortress-code');
 
-/** Resolve ../../vendor/... imports from src/main to absolute vendor paths. */
+/** Resolve ../../vendor/... imports; esbuild needs explicit .ts when a plugin overrides resolution. */
 const vendorResolvePlugin = {
   name: 'vendor-resolve',
   setup(build) {
-    build.onResolve({ filter: /^\.\.\/\.\.\/vendor\/fortress-chat\// }, (args) => ({
-      path: resolve(args.resolveDir, args.path),
-    }));
+    build.onResolve({ filter: /^\.\.\/\.\.\/vendor\/fortress-chat\// }, (args) => {
+      const path = resolve(args.resolveDir, args.path);
+      if (/\.(ts|tsx|js|json)$/.test(path)) return { path };
+      return { path: `${path}.ts` };
+    });
   },
 };
 
