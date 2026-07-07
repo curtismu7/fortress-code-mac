@@ -6,7 +6,15 @@ governance. This app wraps the shared logic from the
 which is included here as a git submodule (`vendor/fortress-chat`), and bundles
 its TypeScript sources directly via esbuild.
 
-Built from the fortress-chat monorepo via git submodule (pinned to `main`).
+Built from the fortress-code monorepo via git submodule (`vendor/fortress-code`, pinned on `main`).
+
+When the VS Code extension chat UI or Google key validation changes, refresh Mac parity:
+
+```bash
+git submodule update --remote vendor/fortress-code   # optional: bump vendor pin
+npm run sync:extension                             # copy media + validateGoogleKey.ts
+npm test && npm run build
+```
 
 ## Feature parity
 

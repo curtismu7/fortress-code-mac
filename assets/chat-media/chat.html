@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {cspSource} 'unsafe-inline'; script-src {cspSource}; font-src {cspSource};" />
+  <link rel="stylesheet" href="chat.css" />
+</head>
+<body class="claude-ui">
+  <aside id="sidebar">
+    <div class="sidebar-head">
+      <span class="sidebar-title">FortressChat</span>
+    </div>
+    <div class="sidebar-actions">
+      <button type="button" id="new-chat-btn" class="sidebar-btn" title="New chat">+ New chat</button>
+      <button type="button" id="new-agent-btn" class="sidebar-btn sidebar-btn-agent" title="New agent chat">+ New agent</button>
+      <button type="button" id="sidebar-model-btn" class="sidebar-btn sidebar-btn-model" title="Choose model" hidden>
+        <span id="sidebar-model-label">Choose model</span>
+        <span class="sidebar-model-chevron">▾</span>
+      </button>
+    </div>
+    <div class="sidebar-search">
+      <input id="sidebar-search" type="text" placeholder="Search chats…" autocomplete="off" />
+    </div>
+    <nav id="chat-list" class="chat-list" aria-label="Chat history"></nav>
+  </aside>
+
+  <header id="top-bar">
+    <button type="button" id="model-picker-btn" class="model-picker-trigger">
+      <span id="active-model">Choose a model</span>
+      <span class="model-chevron">▾</span>
+    </button>
+    <button type="button" id="settings-btn" class="icon-btn" title="Settings">⚙</button>
+  </header>
+
+  <div id="compare-pane" hidden><div id="compare-a"></div><div id="compare-b"></div></div>
+  <div id="artifact-pane" hidden>
+    <div class="artifact-head"><span>Artifact preview</span><button id="artifact-close">×</button></div>
+    <iframe id="artifact-frame" sandbox="allow-scripts" title="Artifact"></iframe>
+  </div>
+
+  <main id="messages-wrap">
+    <div id="empty-state" class="empty-state">
+      <p id="empty-state-text">Select a model to start chatting.</p>
+    </div>
+    <main id="messages"></main>
+  </main>
+  <div id="steps" hidden></div>
+
+  <footer id="composer" hidden>
+    <div id="banner" hidden>
+      <div class="banner-body">
+        <div id="banner-text"></div>
+        <button type="button" id="banner-retry" class="banner-retry" hidden>Stop other models and retry</button>
+      </div>
+      <button type="button" id="banner-close">×</button>
+    </div>
+    <div id="chips"></div>
+    <div id="prompt-queue" class="prompt-queue" hidden></div>
+    <div class="composer-box">
+      <div class="composer-input-row">
+        <button type="button" id="action-btn" class="action-plus" title="Add context, tools, and modes">+</button>
+        <textarea id="input" rows="1" placeholder="Reply to FortressChat…"></textarea>
+      </div>
+      <div class="composer-actions">
+        <span id="mode-badge" class="mode-badge" hidden></span>
+        <button type="button" id="cancel" class="icon-btn" hidden title="Stop">■</button>
+        <button type="button" id="send" class="send-btn" title="Send">↑</button>
+      </div>
+    </div>
+    <div id="composer-status" class="composer-status" hidden></div>
+    <div id="action-menu" hidden>
+      <input id="action-search" type="text" placeholder="Add agents, context, tools…" autocomplete="off" />
+      <div id="action-body"></div>
+    </div>
+    <div id="slash-menu" hidden></div>
+    <div id="mention-menu" hidden></div>
+  </footer>
+
+  <div id="model-picker" hidden>
+    <div id="model-picker-scrim"></div>
+    <div class="model-picker-panel">
+      <div class="model-picker-head">
+        <span class="model-picker-title">Models</span>
+        <button type="button" id="model-picker-close" class="icon-btn">×</button>
+      </div>
+      <div id="setup" hidden></div>
+      <div id="models" class="model-list"></div>
+    </div>
+  </div>
+
+  <aside id="settings-panel" hidden>
+    <div class="settings-head">
+      <h2>Settings</h2>
+      <button type="button" id="settings-close" class="icon-btn">×</button>
+    </div>
+    <div class="settings-body">
+      <details class="settings-section" open>
+        <summary>Chat</summary>
+        <button type="button" id="new-chat" class="settings-block-btn">New chat</button>
+        <button type="button" id="open-editor-chat" class="settings-block-btn">Open chat in editor tab</button>
+        <label class="settings-row"><input type="checkbox" id="agent-toggle" /> Agent mode</label>
+        <label class="settings-row">Compare model
+          <select id="compare-picker"><option value="">None</option></select>
+        </label>
+        <label class="settings-row">Folder
+          <select id="folder-filter"><option value="">All folders</option></select>
+        </label>
+        <label class="settings-row">Search chats
+          <input id="chat-search" placeholder="Filter…" />
+        </label>
+        <label class="settings-row">Active chat
+          <select id="chat-picker"></select>
+        </label>
+        <label class="settings-row">Persona
+          <select id="persona-picker"><option value="">Default</option></select>
+        </label>
+      </details>
+
+      <details class="settings-section">
+        <summary>Project</summary>
+        <p id="rules-path" class="settings-hint">No rules file</p>
+        <button type="button" id="rules-open">Edit project rules</button>
+        <div class="settings-row-inline">
+          <button type="button" id="rag-index">Index workspace</button>
+          <span id="rag-status">Not indexed</span>
+        </div>
+        <div id="rag-bar" class="dlbar" hidden><span id="rag-fill"></span></div>
+        <div class="settings-row-inline">
+          <button type="button" id="docs-index">Add documents</button>
+          <span id="docs-status">No docs</span>
+        </div>
+        <p class="settings-hint">Type <b>@</b> for files, <b>@codebase</b>, or <b>@docs</b>.</p>
+      </details>
+
+      <details class="settings-section">
+        <summary>Memory</summary>
+        <label class="settings-row"><input type="checkbox" id="mem-enabled" /> Include in prompts</label>
+        <textarea id="mem-facts" placeholder="One fact per line"></textarea>
+        <button type="button" id="mem-save">Save memory</button>
+      </details>
+
+      <details class="settings-section">
+        <summary>Prompt library</summary>
+        <div id="prompts-list"></div>
+        <textarea id="pr-text" placeholder="Prompt text (use {var} for placeholders)"></textarea>
+        <div class="pr-actions">
+          <button type="button" id="pr-save">Save prompt</button>
+        </div>
+      </details>
+
+      <details class="settings-section">
+        <summary>Model parameters</summary>
+        <p id="meter" class="settings-hint">Context usage appears while typing.</p>
+        <label class="settings-row">Temperature <input id="p-temp" type="number" step="0.1" min="0" max="2" placeholder="default" /></label>
+        <label class="settings-row">Top P <input id="p-topp" type="number" step="0.05" min="0" max="1" placeholder="default" /></label>
+        <label class="settings-row">Max tokens <input id="p-maxtok" type="number" step="1" min="1" placeholder="default" /></label>
+        <button type="button" id="params-apply">Apply parameters</button>
+      </details>
+
+      <details class="settings-section">
+        <summary>Skills</summary>
+        <p class="settings-hint">Loads <code>SKILL.md</code> from configured directories (Cursor, Claude, Codex, <code>.fortress/skills</code>).</p>
+        <label class="settings-row">Active skill
+          <select id="skill-picker"><option value="">None</option></select>
+        </label>
+        <div class="settings-row-inline">
+          <button type="button" id="skills-reload">Reload skills</button>
+          <button type="button" id="skills-settings">Skill directories…</button>
+        </div>
+        <div id="skills-list" class="skills-list"></div>
+      </details>
+
+      <details class="settings-section">
+        <summary>MCP servers</summary>
+        <p class="settings-hint">Stdio MCP servers expose tools in <b>Agent</b> mode. Configure in VS Code settings.</p>
+        <div id="mcp-list" class="mcp-list"></div>
+        <div class="settings-row-inline">
+          <button type="button" id="mcp-reload">Reload MCP</button>
+          <button type="button" id="mcp-settings">MCP settings…</button>
+        </div>
+      </details>
+
+      <details class="settings-section">
+        <summary>Personas</summary>
+        <div id="personas-list"></div>
+        <input id="persona-name" placeholder="Persona name" />
+        <textarea id="persona-prompt" placeholder="System prompt for this persona"></textarea>
+        <button type="button" id="persona-save">Save persona</button>
+      </details>
+
+      <details class="settings-section">
+        <summary>Google Gemini</summary>
+        <p class="settings-hint">Add a Google AI API key to use Gemini cloud models. Get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.</p>
+        <div id="google-key" class="settings-row-inline">
+          <input id="google-key-input" type="password" placeholder="Google AI API key" autocomplete="off" />
+          <button type="button" id="google-key-save">Save key</button>
+        </div>
+        <p id="google-key-status" class="settings-hint" hidden aria-live="polite"></p>
+      </details>
+
+      <details class="settings-section" hidden aria-hidden="true">
+        <summary>Cloud models</summary>
+        <p class="settings-hint">FortressChat supports local US models and Google Gemini.</p>
+      </details>
+
+      <details class="settings-section">
+        <summary>More</summary>
+        <button type="button" id="export-chat">Export chat</button>
+        <button type="button" id="attach-img">Attach image</button>
+        <button type="button" id="speak-btn">Read last reply aloud</button>
+        <button type="button" id="undo-agent" disabled>Undo last agent edits</button>
+      </details>
+
+      <details class="settings-section" id="dev-settings" hidden aria-hidden="true">
+        <summary>Developer</summary>
+        <p class="settings-hint">Developer mode is disabled. Local US models only.</p>
+      </details>
+    </div>
+  </aside>
+  <div id="settings-scrim" hidden></div>
+  <div id="policy-fatal" hidden role="alertdialog" aria-modal="true" aria-labelledby="policy-fatal-title">
+    <div class="policy-fatal-card">
+      <h2 id="policy-fatal-title">Not allowed</h2>
+      <p id="policy-fatal-text"></p>
+      <p class="policy-fatal-hint">FortressChat supports local US models and Google Gemini only.</p>
+    </div>
+  </div>
+
+  <link rel="stylesheet" href="vendor/katex.min.css" />
+  <script src="vendor/katex.min.js"></script>
+  <script src="vendor/auto-render.min.js"></script>
+  <script src="vendor/mermaid.min.js"></script>
+  <script src="chat.js"></script>
+</body>
+</html>
