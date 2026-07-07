@@ -6,8 +6,9 @@
   "main": "dist/main.js",
   "scripts": {
     "postinstall": "git submodule update --init --recursive",
+    "sync:extension": "node scripts/sync-extension-media.mjs",
     "sync": "node scripts/sync-renderer.mjs",
-    "prebuild": "node scripts/check-vendor.mjs",
+    "prebuild": "node scripts/check-vendor.mjs && node scripts/check-extension-parity.mjs",
     "build": "npm run sync && node esbuild.mjs && tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "start": "npm run build && electron .",
