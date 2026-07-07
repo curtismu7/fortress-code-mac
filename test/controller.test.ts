@@ -60,6 +60,17 @@ describe('ChatController', () => {
     c.dispose();
   });
 
+  it('rememberFact appends to memory and enables it', async () => {
+    const { deps, posts } = makeDeps();
+    const c = new ChatController(deps);
+    await c.onMessage({ type: 'rememberFact', text: 'Prefer functional style' });
+    expect(deps.showInfo).toHaveBeenCalledWith('Saved to local memory.');
+    const mem = posts.find((p) => p.type === 'memory');
+    expect(mem?.data?.enabled).toBe(true);
+    expect(mem?.data?.facts).toContain('Prefer functional style');
+    c.dispose();
+  });
+
   it('setGoogleKey stores key and posts googleKeySet', async () => {
     const { deps, posts } = makeDeps();
     const c = new ChatController(deps);

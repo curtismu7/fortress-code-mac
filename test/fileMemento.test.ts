@@ -19,7 +19,7 @@ describe('FileMemento', () => {
     expect(new FileMemento(p).get('k')).toBeUndefined();
   });
   it('works with the vendor SessionStore', async () => {
-    const { SessionStore } = await import('../vendor/fortress-chat/packages/extension/src/sessionStore.js');
+    const { SessionStore } = await import('../vendor/fortress-code/packages/extension/src/sessionStore.js');
     const p = join(mkdtempSync(join(tmpdir(), 'fc-mem-')), 'sessions.json');
     const store = SessionStore.load(new FileMemento(p));
     store.active().addUser('hello');

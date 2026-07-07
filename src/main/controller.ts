@@ -2,30 +2,30 @@ import { readFileSync, watch, writeFileSync, type FSWatcher } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { loadPolicy, visibleLocalEntries, hiddenLocalEntries, googleEntries, explainBlock, formatPolicyFatal, type PolicyEntry, type StatusResponse } from '@fortress-chat/shared';
-import { DaemonClient } from '../../vendor/fortress-chat/packages/extension/src/daemon';
-import { RagService } from '../../vendor/fortress-chat/packages/extension/src/rag/service';
-import { Debouncer } from '../../vendor/fortress-chat/packages/extension/src/rag/watcher';
-import { SessionStore } from '../../vendor/fortress-chat/packages/extension/src/sessionStore';
-import { Session } from '../../vendor/fortress-chat/packages/extension/src/chat/session';
-import { splitThink } from '../../vendor/fortress-chat/packages/extension/src/reasoning';
-import { resolveTarget, type ResolvedTarget } from '../../vendor/fortress-chat/packages/extension/src/providers/target';
-import { resolveDevTarget } from '../../vendor/fortress-chat/packages/extension/src/providers/dev';
-import { DEV_PRESETS } from '../../vendor/fortress-chat/packages/extension/src/devPresets';
-import { streamChat, type Usage } from '../../vendor/fortress-chat/packages/extension/src/providers/stream';
-import { runAgentTurn } from '../../vendor/fortress-chat/packages/extension/src/agent/loop';
-import { buildContextPreamble, parseMentions, capContent, type ChatContext, type AttachedFile } from '../../vendor/fortress-chat/packages/extension/src/context';
-import { Prefs } from '../../vendor/fortress-chat/packages/extension/src/prefs';
-import { searchChats } from '../../vendor/fortress-chat/packages/extension/src/chatSearch';
-import { exportMarkdown } from '../../vendor/fortress-chat/packages/extension/src/exportChat';
-import { MemoryStore } from '../../vendor/fortress-chat/packages/extension/src/memory';
-import { DocsService } from '../../vendor/fortress-chat/packages/extension/src/docsService';
-import { McpClient, parseMcpConfigs, type McpServerConfig } from '../../vendor/fortress-chat/packages/extension/src/mcpClient';
-import { webSearch } from '../../vendor/fortress-chat/packages/extension/src/webSearch';
-import { speakText } from '../../vendor/fortress-chat/packages/extension/src/voice';
-import { loadProjectRules, defaultRulesRel } from '../../vendor/fortress-chat/packages/extension/src/projectRules';
-import { AgentCheckpoint } from '../../vendor/fortress-chat/packages/extension/src/agentCheckpoint';
-import { mentionCandidates } from '../../vendor/fortress-chat/packages/extension/src/mentionFiles';
-import { discoverSkills, DEFAULT_SKILL_DIRS, type Skill } from '../../vendor/fortress-chat/packages/extension/src/skills';
+import { DaemonClient } from '../../vendor/fortress-code/packages/extension/src/daemon';
+import { RagService } from '../../vendor/fortress-code/packages/extension/src/rag/service';
+import { Debouncer } from '../../vendor/fortress-code/packages/extension/src/rag/watcher';
+import { SessionStore } from '../../vendor/fortress-code/packages/extension/src/sessionStore';
+import { Session } from '../../vendor/fortress-code/packages/extension/src/chat/session';
+import { splitThink } from '../../vendor/fortress-code/packages/extension/src/reasoning';
+import { resolveTarget, type ResolvedTarget } from '../../vendor/fortress-code/packages/extension/src/providers/target';
+import { resolveDevTarget } from '../../vendor/fortress-code/packages/extension/src/providers/dev';
+import { DEV_PRESETS } from '../../vendor/fortress-code/packages/extension/src/devPresets';
+import { streamChat, type Usage } from '../../vendor/fortress-code/packages/extension/src/providers/stream';
+import { runAgentTurn } from '../../vendor/fortress-code/packages/extension/src/agent/loop';
+import { buildContextPreamble, parseMentions, capContent, type ChatContext, type AttachedFile } from '../../vendor/fortress-code/packages/extension/src/context';
+import { Prefs } from '../../vendor/fortress-code/packages/extension/src/prefs';
+import { searchChats } from '../../vendor/fortress-code/packages/extension/src/chatSearch';
+import { exportMarkdown } from '../../vendor/fortress-code/packages/extension/src/exportChat';
+import { MemoryStore } from '../../vendor/fortress-code/packages/extension/src/memory';
+import { DocsService } from '../../vendor/fortress-code/packages/extension/src/docsService';
+import { McpClient, parseMcpConfigs, type McpServerConfig } from '../../vendor/fortress-code/packages/extension/src/mcpClient';
+import { webSearch } from '../../vendor/fortress-code/packages/extension/src/webSearch';
+import { speakText } from '../../vendor/fortress-code/packages/extension/src/voice';
+import { loadProjectRules, defaultRulesRel } from '../../vendor/fortress-code/packages/extension/src/projectRules';
+import { AgentCheckpoint } from '../../vendor/fortress-code/packages/extension/src/agentCheckpoint';
+import { mentionCandidates } from '../../vendor/fortress-code/packages/extension/src/mentionFiles';
+import { discoverSkills, DEFAULT_SKILL_DIRS, type Skill } from '../../vendor/fortress-code/packages/extension/src/skills';
 import { FileMemento } from './fileMemento';
 import { SecretStore, OPENROUTER_KEY_ID, FIREWORKS_KEY_ID, GOOGLE_KEY_ID } from './secrets';
 import { executeMacTool, resolveInWorkspace } from './macTools';
@@ -339,9 +339,13 @@ export class ChatController {
       catch (e) { this.banner(`@codebase retrieval failed: ${e instanceof Error ? e.message : e}`); }
     }
     let docs: ChatContext['docs'] = null;
-    if (parseMentions(userText).includes('docs') && this.client) {
-      try { docs = await this.docsService().retrieveHits(this.client, userText); }
-      catch (e) { this.banner(`@docs retrieval failed: ${e instanceof Error ? e.message : e}`); }
+    if (parseMentions(userText).includes('docs')) {
+      if (!this.docsService().hasIndex()) {
+        this.banner('No documents indexed yet — use Settings → Documents → Add documents.');
+      } else if (this.client) {
+        try { docs = await this.docsService().retrieveHits(this.client, userText); }
+        catch (e) { this.banner(`@docs retrieval failed: ${e instanceof Error ? e.message : e}`); }
+      }
     }
     const images = this.pendingImages.length ? [...this.pendingImages] : undefined;
     this.pendingImages = [];
@@ -543,12 +547,32 @@ export class ChatController {
           store.save({ enabled: !!m.enabled, facts: Array.isArray(m.facts) ? m.facts.map(String) : store.load().facts });
           this.post({ type: 'memory', data: store.load() }); return;
         }
+        case 'rememberFact': {
+          const fact = String(m.text ?? '').trim();
+          if (!fact) return;
+          const store = new MemoryStore(this.memoryPath());
+          const data = store.load();
+          data.enabled = true;
+          if (!data.facts.includes(fact)) data.facts.push(fact);
+          store.save(data);
+          this.post({ type: 'memory', data });
+          this.deps.showInfo('Saved to local memory.');
+          return;
+        }
         case 'indexDocs': {
           const picks = await this.deps.pickDocuments();
           if (!picks.length) return;
           const client = await this.ensureClient();
-          await this.docsService().indexFiles(client, picks, (n, t) => this.post({ type: 'docsProgress', done: n, total: t }));
-          this.post({ type: 'docsStatus', stats: this.docsService().stats() }); return;
+          const result = await this.docsService().indexFiles(
+            client,
+            picks,
+            (done, total, file) => this.post({ type: 'docsProgress', done, total, file: file ? file.split('/').pop() : undefined }),
+          );
+          if (result.errors.length) {
+            const first = result.errors[0]!;
+            this.banner(`Could not index ${result.errors.length} file(s): ${first.reason}`);
+          }
+          this.post({ type: 'docsStatus', stats: this.docsService().stats(), lastIndex: result }); return;
         }
         case 'attachImage': {
           const img = await this.deps.pickImage();
@@ -719,9 +743,13 @@ export class ChatController {
           (t) => this.post({ type: 'token', text: t }), this.generating.signal,
           (t) => this.post({ type: 'reasoning', text: t }));
         session.addAssistant(splitThink(r.content).content || '(no reply)');
-        if (ctx.codebase?.length) {
+        const hits = [
+          ...(ctx.codebase ?? []).map(({ file, startLine, endLine }) => ({ file, startLine, endLine })),
+          ...(ctx.docs ?? []).map(({ file, startLine, endLine }) => ({ file, startLine, endLine })),
+        ];
+        if (hits.length) {
           const last = session.messages[session.messages.length - 1];
-          last.sources = ctx.codebase.map(({ file, startLine, endLine }) => ({ file, startLine, endLine }));
+          last.sources = hits;
         }
         this.post({ type: 'reasoningDone' });
         usage = r.usage;

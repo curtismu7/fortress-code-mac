@@ -70,7 +70,7 @@ app.whenReady().then(async () => {
     pickDocuments: async () => {
       const r = await dialog.showOpenDialog(mainWindow!, {
         properties: ['openFile', 'multiSelections'],
-        filters: [{ name: 'Documents', extensions: ['txt', 'md', 'markdown', 'json', 'csv'] }],
+        filters: [{ name: 'Documents', extensions: ['txt', 'md', 'markdown', 'json', 'csv', 'pdf'] }],
       });
       return r.filePaths;
     },

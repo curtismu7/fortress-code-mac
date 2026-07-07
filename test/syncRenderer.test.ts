@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { syncRenderer } from '../scripts/sync-renderer.mjs';
 
-const VENDOR = 'vendor/fortress-chat/packages/extension/media';
+const VENDOR = 'vendor/fortress-code/packages/extension/media';
 
 describe('syncRenderer', () => {
   it('copies chat.js and chat.css byte-identical and transforms chat.html', () => {
