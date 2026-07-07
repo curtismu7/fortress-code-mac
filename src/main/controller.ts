@@ -518,6 +518,10 @@ export class ChatController {
             return;
           }
           this.deps.secrets.set(GOOGLE_KEY_ID, key);
+          if (!this.selected) {
+            const gemini = googleEntries()[0];
+            if (gemini) await this.selectModel(gemini.id);
+          }
           this.post({ type: 'googleKeySet', set: true, message: 'Google API key saved and verified.' });
           await this.pushFullState();
           return;
