@@ -3,8 +3,8 @@ import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from '
 import { resolve, sep, join, relative } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { truncate, parseRgHits } from '../../vendor/fortress-chat/packages/extension/src/agent/exec';
-import type { ToolExtras } from '../../vendor/fortress-chat/packages/extension/src/agent/tools';
+import { truncate, parseRgHits } from '../../vendor/fortress-code/packages/extension/src/agent/exec';
+import type { ToolExtras } from '../../vendor/fortress-code/packages/extension/src/agent/tools';
 
 const execFileP = promisify(execFile);
 

@@ -9,6 +9,6 @@ describe('bootstrap', () => {
     expect(loadPolicy().every((e) => typeof isAllowed(e) === 'boolean')).toBe(true);
   });
   it('submodule is present', () => {
-    expect(existsSync('vendor/fortress-chat/packages/shared/src/index.ts')).toBe(true);
+    expect(existsSync('vendor/fortress-code/packages/shared/src/index.ts')).toBe(true);
   });
 });

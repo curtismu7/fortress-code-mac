@@ -8,7 +8,7 @@ export default defineConfig({
   test: { include: ['test/**/*.test.ts'] },
   resolve: {
     alias: {
-      '@fortress-chat/shared': join(HERE, 'vendor/fortress-chat/packages/shared/src/index.ts'),
+      '@fortress-chat/shared': join(HERE, 'vendor/fortress-code/packages/shared/src/index.ts'),
       vscode: join(HERE, 'src/main/vscodeStub.ts'),
     },
   },
