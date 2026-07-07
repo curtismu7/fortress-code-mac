@@ -5,7 +5,9 @@
   "description": "FortressChat for Mac — local-first AI chat with US-only model governance",
   "main": "dist/main.js",
   "scripts": {
+    "postinstall": "git submodule update --init --recursive",
     "sync": "node scripts/sync-renderer.mjs",
+    "prebuild": "node scripts/check-vendor.mjs",
     "build": "npm run sync && node esbuild.mjs && tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "start": "npm run build && electron .",
