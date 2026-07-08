@@ -1,9 +1,9 @@
 {
   "sourceRoot": "/Users/curtismuir/Development/fortress-code",
-  "sourceCommit": "6a492dbfe0fce2e7e535fd254edec2a036dd34d6",
-  "syncedAt": "2026-07-08T10:23:03.154Z",
+  "sourceCommit": "93430db795185e1da8e8f0d1d935141d05c1a64f",
+  "syncedAt": "2026-07-08T10:26:08.994Z",
   "mediaFiles": {
-    "chat.css": "107071477c5420cb4139107d6e6b427f44cc6c9745218c26982c263ca0b7d9d9",
+    "chat.css": "a423a5948aab56b623629cdeeb8acfc746319caf71978053cda706071c5b77d8",
     "chat.html": "4e345d66733aa718c88fe5d7d027fabbfb597e147105ea878822d22f61d2fcd3",
     "chat.js": "a91ef72a7d85fb8803ccf02a7f1e6bccdf2fbb84b540c785e6d7bef5628ffaa3",
     "icon.svg": "f374df7f5c605ca3ae335e58f53612a16b3274594b3bf7d6b1c19bc637dab648",
