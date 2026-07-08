@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>FortressChat — Editor</title>
+  <link rel="stylesheet" href="editor.css" />
+</head>
+<body>
+  <header class="editor-bar">
+    <span id="editor-path" class="editor-path"></span>
+    <button type="button" id="editor-save">Save</button>
+  </header>
+  <textarea id="editor-body" spellcheck="false"></textarea>
+  <p id="editor-status" class="editor-status" aria-live="polite"></p>
+  <script src="editor.js"></script>
+</body>
+</html>

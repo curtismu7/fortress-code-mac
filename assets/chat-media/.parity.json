@@ -1,11 +1,11 @@
 {
   "sourceRoot": "/Users/curtismuir/Development/fortress-code",
   "sourceCommit": "17c5513f87f03a3915bc8f90e56238e401fd9ff4",
-  "syncedAt": "2026-07-08T10:55:51.260Z",
+  "syncedAt": "2026-07-08T11:00:48.599Z",
   "mediaFiles": {
-    "chat.css": "137cdc5dac09bc3e2ec24e3390df454abc74f729f0f9df1d4014d39efc7df548",
-    "chat.html": "af13d51ae75df065d368f277e287a9859aba973c866bfc7632a03b7862ffcd7b",
-    "chat.js": "e43b0023dcbe6900ba7448fcd243df49be0705ad7f40eb4c8bb20589cdb4b962",
+    "chat.css": "b56da287abd426abd01da6ee990389f792f858ea65de36518dd1dccf8b6d192e",
+    "chat.html": "fa5bbef030d08e122bd2308edb823708e16d69740070cd03bd1107b17525e3b7",
+    "chat.js": "36efeb09f57f7a4c0fb8c9248d207bf9534a0a1fb3627b3518a0c5132dd72d00",
     "icon.svg": "f374df7f5c605ca3ae335e58f53612a16b3274594b3bf7d6b1c19bc637dab648",
     "vendor/auto-render.min.js": "e5372d199bcdae8b4de71d0f7ceba72a4ba12774a27c60a6f1f77d03b3228ee4",
     "vendor/fonts/KaTeX_AMS-Regular.woff2": "0cdd387c9590a1a9f9794560022dbb59654a7d86f187aa0c81495ad42d3a7308",

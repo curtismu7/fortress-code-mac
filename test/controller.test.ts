@@ -33,7 +33,7 @@ function makeDeps() {
     approveCommand: vi.fn(async () => true),
     writeClipboard: vi.fn(),
     openChatPanel: vi.fn(),
-    openSettingsFile: vi.fn(async () => {}),
+    openSettingsPanel: vi.fn(),
     showInfo: vi.fn(),
     policyFatal: vi.fn(),
   };

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain, shell, safeStorage, clipboard } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage, clipboard } from 'electron';
 import { join } from 'node:path';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { ensureDaemon } from '../../vendor/fortress-code/packages/extension/src/daemon';
@@ -6,6 +6,8 @@ import { DEFAULT_SKILL_DIRS } from '../../vendor/fortress-code/packages/extensio
 import { ChatController } from './controller';
 import { SecretStore } from './secrets';
 import { FileMemento } from './fileMemento';
+import { openInAppEditor } from './inAppEditor';
+import { openInAppTerminal } from './inAppTerminal';
 
 const MCP_KEY = 'fortressCode.mcpServers';
 const SKILL_DIRS_KEY = 'fortressCode.skillDirectories';
@@ -49,6 +51,12 @@ function openPanelWindow(): void {
   panelWindow.webContents.on('did-finish-load', () => void controller?.init());
 }
 
+/** Open MCP/skills settings inside the chat panel instead of an external editor. */
+function openSettingsPanel(section: 'mcp' | 'skills' = 'mcp'): void {
+  broadcast({ type: 'openSettingsPanel', section });
+  mainWindow?.focus();
+}
+
 app.whenReady().then(async () => {
   mainWindow = createWindow();
   const userDataDir = app.getPath('userData');
@@ -61,7 +69,11 @@ app.whenReady().then(async () => {
     settings,
     connect: () => ensureDaemon(join(__dirname, 'manager', 'index.js')),
     post: broadcast,
-    openPath: async (p) => { await shell.openPath(p); },
+    openPath: async (absPath) => {
+      const root = controller?.folder;
+      if (!root) return;
+      openInAppEditor(root, absPath);
+    },
     saveFile: async (defaultName, content) => {
       const r = await dialog.showSaveDialog(mainWindow!, { defaultPath: defaultName, filters: [{ name: 'Markdown', extensions: ['md'] }] });
       if (r.filePath) writeFileSync(r.filePath, content, 'utf8');
@@ -111,11 +123,7 @@ app.whenReady().then(async () => {
     },
     writeClipboard: (text) => { clipboard.writeText(text); },
     openChatPanel: openPanelWindow,
-    openSettingsFile: async () => {
-      const path = settingsPath(userDataDir);
-      if (!existsSync(path)) writeFileSync(path, '{}', 'utf8');
-      await shell.openPath(path);
-    },
+    openSettingsPanel,
     showInfo: (message) => { void dialog.showMessageBox(mainWindow!, { type: 'info', message }); },
     policyFatal: (message) => {
       dialog.showErrorBox('FortressChat — not allowed', message);
@@ -142,11 +150,14 @@ app.whenReady().then(async () => {
       { type: 'separator' },
       { role: 'close' },
     ] },
+    { label: 'Shell', submenu: [
+      { label: 'New Terminal', accelerator: 'CmdOrCtrl+`', click: () => openInAppTerminal(controller?.folder) },
+    ] },
     { label: 'Fortress', submenu: [
       { label: 'Developer Mode (disabled — local US models only)', accelerator: 'Ctrl+Alt+M', click: () => {
         dialog.showErrorBox('FortressChat — not allowed', 'Developer mode is disabled. FortressChat supports local US models only.');
       } },
-      { label: 'Edit Settings (MCP + Skills)…', click: async () => { await shell.openPath(settingsPath(userDataDir)); } },
+      { label: 'Edit Settings (MCP + Skills)…', click: () => openSettingsPanel('mcp') },
       { label: 'Reload MCP Servers', click: () => void controller?.onMessage({ type: 'reloadMcp' }) },
       { label: 'Reload Skills', click: () => void controller?.onMessage({ type: 'reloadSkills' }) },
     ] },

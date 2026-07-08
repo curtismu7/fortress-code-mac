@@ -1,5 +1,5 @@
 import { readFileSync, watch, writeFileSync, type FSWatcher } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { loadPolicy, chatLocalEntries, visibleLocalEntries, hiddenLocalEntries, googleEntries, explainBlock, formatPolicyFatal, type PolicyEntry, type StatusResponse } from '@fortress-chat/shared';
 import { DaemonClient } from '../../vendor/fortress-code/packages/extension/src/daemon';
@@ -31,6 +31,7 @@ import { SecretStore, OPENROUTER_KEY_ID, FIREWORKS_KEY_ID, GOOGLE_KEY_ID } from 
 import { validateGoogleApiKey } from './validateGoogleKey';
 import { defaultModelsDirectory, getModelsDirectory, setModelsDirectory, syncModelsDirectoryConfig } from './modelsDirectory';
 import { executeMacTool, resolveInWorkspace } from './macTools';
+import { listWorkspaceDir } from './workspaceTree';
 
 const SYSTEM_PROMPT = 'You are Fortress Code, a helpful local coding assistant.';
 const DEV_MODE_KEY = 'fortressCode.devMode';
@@ -60,7 +61,7 @@ export interface ControllerDeps {
   approveCommand: (command: string) => Promise<boolean>;
   writeClipboard: (text: string) => void;
   openChatPanel?: () => void;
-  openSettingsFile: () => Promise<void>;
+  openSettingsPanel: (section?: 'mcp' | 'skills') => void;
   showInfo: (message: string) => void;
   policyFatal: (message: string) => void;
 }
@@ -255,12 +256,26 @@ export class ChatController {
     this.postMcpStatus();
   }
 
+  private postWorkspaceExplorer(): void {
+    if (!this.root) {
+      this.post({ type: 'workspaceExplorer', open: false });
+      return;
+    }
+    this.post({
+      type: 'workspaceExplorer',
+      open: true,
+      rootName: basename(this.root),
+      entries: listWorkspaceDir(this.root, ''),
+    });
+  }
+
   private async pushFullState(): Promise<void> {
     this.post({ type: 'policy', local: visibleLocalEntries(), hidden: hiddenLocalEntries(), google: googleEntries(), openrouter: [] });
     this.post({ type: 'prefs', prompts: this.prefs.prompts(), params: this.prefs.params() });
     this.post({ type: 'personas', personas: this.prefs.personas() });
     this.post({ type: 'skills', skills: this.skills });
     this.post({ type: 'workspace', open: !!this.root });
+    this.postWorkspaceExplorer();
     this.post({ type: 'projectRules', path: loadProjectRules(this.root ?? undefined).path ?? defaultRulesRel(this.root ?? undefined) });
     this.post({ type: 'memory', data: this.memoryData() });
     this.post({ type: 'folders', folders: this.store.listFolders() });
@@ -314,6 +329,7 @@ export class ChatController {
     this.root = root;
     this.rag = null;
     this.post({ type: 'workspace', open: true });
+    this.postWorkspaceExplorer();
     this.refreshSkills();
     const rag = this.ragService();
     if (rag) this.post({ type: 'ragStatus', stats: rag.stats(), indexing: this.ragIndexing });
@@ -571,9 +587,41 @@ export class ChatController {
           return;
         }
         case 'openMcpSettings':
-        case 'openSkillSettings':
-          await this.deps.openSettingsFile();
+          this.deps.openSettingsPanel('mcp');
           return;
+        case 'openSkillSettings':
+          this.deps.openSettingsPanel('skills');
+          return;
+        case 'requestAppSettings':
+          this.post({
+            type: 'appSettings',
+            mcp: this.deps.settings.get(MCP_KEY) ?? [],
+            skillDirs: this.skillDirectories(),
+          });
+          return;
+        case 'saveMcpConfig': {
+          let parsed: unknown;
+          try { parsed = JSON.parse(String(m.json ?? '')); }
+          catch { this.banner('MCP config must be valid JSON.'); return; }
+          if (!Array.isArray(parsed)) { this.banner('MCP config must be a JSON array.'); return; }
+          this.deps.settings.update(MCP_KEY, parsed);
+          await this.initMcp();
+          this.deps.showInfo('MCP config saved.');
+          return;
+        }
+        case 'saveSkillDirs': {
+          let parsed: unknown;
+          try { parsed = JSON.parse(String(m.json ?? '')); }
+          catch { this.banner('Skill directories must be valid JSON.'); return; }
+          if (!Array.isArray(parsed) || !parsed.every((x) => typeof x === 'string')) {
+            this.banner('Skill directories must be a JSON array of strings.');
+            return;
+          }
+          this.deps.settings.update(SKILL_DIRS_KEY, parsed);
+          this.refreshSkills();
+          this.deps.showInfo('Skill directories saved.');
+          return;
+        }
         case 'reloadMcp': await this.initMcp(); return;
         case 'reloadSkills': this.refreshSkills(); return;
         case 'pickModelsDirectory': {
@@ -643,6 +691,25 @@ export class ChatController {
           if (!this.root) { this.banner('Open a folder to jump to a source.'); return; }
           try { await this.deps.openPath(resolveInWorkspace(this.root, String(m.file))); }
           catch (e) { this.banner(`Could not open ${String(m.file)}: ${e instanceof Error ? e.message : e}`); }
+          return;
+        }
+        case 'listWorkspaceDir': {
+          if (!this.root) return;
+          try {
+            const rel = String(m.rel ?? '');
+            this.post({ type: 'workspaceDir', rel, entries: listWorkspaceDir(this.root, rel) });
+          } catch (e) {
+            this.banner(`Could not list folder: ${e instanceof Error ? e.message : e}`);
+          }
+          return;
+        }
+        case 'refreshWorkspaceExplorer':
+          this.postWorkspaceExplorer();
+          return;
+        case 'openWorkspaceFile': {
+          if (!this.root) { this.banner('Open a folder first.'); return; }
+          try { await this.deps.openPath(resolveInWorkspace(this.root, String(m.rel))); }
+          catch (e) { this.banner(`Could not open file: ${e instanceof Error ? e.message : e}`); }
           return;
         }
         case 'savePrompt': this.prefs.savePrompt(m.prompt); this.post({ type: 'prefs', prompts: this.prefs.prompts(), params: this.prefs.params() }); return;

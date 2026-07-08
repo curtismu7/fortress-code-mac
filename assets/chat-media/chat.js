@@ -323,7 +323,7 @@ function renderActionSub(body, q) {
         if (item.id.startsWith('skill:')) vscode.postMessage({ type: 'setSkill', id: item.id.slice(6) });
         else if (item.id === 'skill-clear') vscode.postMessage({ type: 'setSkill', id: null });
         else if (item.id === 'skills-reload') vscode.postMessage({ type: 'reloadSkills' });
-        else if (item.id === 'skills-settings') vscode.postMessage({ type: 'openSkillSettings' });
+        else if (item.id === 'skills-settings') openSettingsSection('skills');
         else if (item.id.startsWith('persona:')) vscode.postMessage({ type: 'setPersona', id: item.id.slice(8) });
         else if (item.id.startsWith('prompt:')) {
           const p = prompts.find((x) => x.id === item.id.slice(7));
@@ -356,7 +356,7 @@ function renderActionSub(body, q) {
     reload.onclick = () => { vscode.postMessage({ type: 'reloadMcp' }); closeActionMenu(); };
     body.appendChild(reload);
     const cfg = actionRow({ label: 'Configure MCP servers…', icon: '⚙' }, false, true);
-    cfg.onclick = () => { vscode.postMessage({ type: 'openMcpSettings' }); closeActionMenu(); };
+    cfg.onclick = () => { openSettingsSection('mcp'); closeActionMenu(); };
     body.appendChild(cfg);
     return;
   }
@@ -653,6 +653,8 @@ function renderModels(status) {
       selectedId = m.id;
       if (window.__status) renderState(window.__status);
       vscode.postMessage({ type: 'selectModel', id: m.id });
+      closeModelPicker();
+      closeActionMenu();
     };
   });
 }
@@ -763,6 +765,8 @@ window.addEventListener('message', (e) => {
     window.__workspaceOpen = !!m.open;
     if (m.open) clearHint();
   }
+  if (m.type === 'workspaceExplorer') renderWorkspaceExplorer(m);
+  if (m.type === 'workspaceDir') fillWorkspaceDir(m);
   if (m.type === 'hint') {
     if (m.message) showHint(m.message);
     else clearHint();
@@ -866,7 +870,13 @@ window.addEventListener('message', (e) => {
   if (m.type === 'searchResults') { renderChatPicker(m.metas, $('chat-picker') ? $('chat-picker').value : undefined); renderSidebar(m.metas, window.__lastChats && window.__lastChats.activeId); }
   if (m.type === 'contextWindow') { window.__ctxWindow = m.tokens; updateMeter(); }
   if (m.type === 'queue') renderPromptQueue(m.items || []);
-  if (m.type === 'generating') setGenerating(!!m.active);
+  if (m.type === 'openSettingsPanel') openSettingsSection(m.section || 'mcp');
+  if (m.type === 'appSettings') {
+    const mcpTa = $('mcp-config-json');
+    if (mcpTa) mcpTa.value = JSON.stringify(m.mcp ?? [], null, 2);
+    const skTa = $('skill-dirs-json');
+    if (skTa) skTa.value = JSON.stringify(m.skillDirs ?? [], null, 2);
+  }
   if (m.type === 'devMode') {
     window.__dev = m.on;
     const ds = $('dev-settings');
@@ -1349,6 +1359,80 @@ function mentionAtCursor() {
   return { at, query: chunk };
 }
 
+const explorerLoadedDirs = new Set();
+
+/** Render one tree level inside a container element. */
+function renderTreeEntries(container, entries) {
+  if (!container) return;
+  container.innerHTML = '';
+  (entries || []).forEach((entry) => {
+    const node = document.createElement('div');
+    node.className = 'tree-node';
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'tree-row tree-row--' + entry.kind;
+    row.dataset.rel = entry.rel;
+    row.dataset.kind = entry.kind;
+
+    const toggle = document.createElement('span');
+    toggle.className = entry.kind === 'dir' ? 'tree-toggle' : 'tree-spacer';
+    toggle.textContent = entry.kind === 'dir' ? '▸' : '';
+    const icon = document.createElement('span');
+    icon.className = 'tree-icon';
+    icon.textContent = entry.kind === 'dir' ? '📁' : '📄';
+    const label = document.createElement('span');
+    label.className = 'tree-label';
+    label.textContent = entry.name;
+    row.appendChild(toggle);
+    row.appendChild(icon);
+    row.appendChild(label);
+
+    const children = document.createElement('div');
+    children.className = 'tree-children';
+    children.hidden = true;
+    children.dataset.rel = entry.rel;
+
+    if (entry.kind === 'file') {
+      row.onclick = () => vscode.postMessage({ type: 'openWorkspaceFile', rel: entry.rel });
+    } else {
+      row.onclick = () => {
+        const open = children.hidden;
+        children.hidden = !open;
+        toggle.textContent = open ? '▾' : '▸';
+        if (open && !explorerLoadedDirs.has(entry.rel)) {
+          explorerLoadedDirs.add(entry.rel);
+          children.innerHTML = '<div class="tree-loading">Loading…</div>';
+          vscode.postMessage({ type: 'listWorkspaceDir', rel: entry.rel });
+        }
+      };
+    }
+
+    node.appendChild(row);
+    if (entry.kind === 'dir') node.appendChild(children);
+    container.appendChild(node);
+  });
+}
+
+/** Show or hide the workspace file explorer in the sidebar. */
+function renderWorkspaceExplorer(msg) {
+  const panel = $('file-explorer');
+  if (!panel) return;
+  panel.hidden = !msg.open;
+  if (!msg.open) return;
+  const rootName = $('explorer-root-name');
+  if (rootName) rootName.textContent = msg.rootName || 'Workspace';
+  explorerLoadedDirs.clear();
+  explorerLoadedDirs.add('');
+  renderTreeEntries($('file-tree'), msg.entries || []);
+}
+
+/** Fill a lazy-loaded directory branch in the tree. */
+function fillWorkspaceDir(msg) {
+  const host = document.querySelector('.tree-children[data-rel="' + CSS.escape(msg.rel) + '"]');
+  if (!host) return;
+  renderTreeEntries(host, msg.entries || []);
+}
+
 function openSettings(open) {
   if (open && window.__modelPickerPinned) { /* keep model list open */ }
   else if (open) closeModelPicker();
@@ -1360,8 +1444,18 @@ function openSettings(open) {
   if (open) {
     fillParams(); renderPrompts(); fillMemory(); renderPersonas(); fillPersonaPicker();
     if (window.__modelsDirectory) renderModelsDirectory(window.__modelsDirectory);
+    vscode.postMessage({ type: 'requestAppSettings' });
   }
 }
+
+/** Open settings and expand a section (mcp, skills). */
+function openSettingsSection(section) {
+  openSettings(true);
+  const ids = { mcp: 'settings-mcp-section', skills: 'settings-skills-section' };
+  const el = $(ids[section] || section);
+  if (el && 'open' in el) el.open = true;
+}
+
 function closeSettings(open) {
   if (open === false) {
     const panel = $('settings-panel');
@@ -1478,6 +1572,7 @@ document.addEventListener('keydown', (e) => {
   showGoogleKeyStatus({ set: false, pending: true, message: 'Verifying API key…' });
   vscode.postMessage({ type: 'setGoogleKey', key: k });
 }; }
+{ const _er = $('explorer-refresh'); if (_er) _er.onclick = () => vscode.postMessage({ type: 'refreshWorkspaceExplorer' }); }
 { const _mdp = $('models-dir-pick'); if (_mdp) _mdp.onclick = () => vscode.postMessage({ type: 'pickModelsDirectory' }); }
 { const _mdc = $('models-dir-clear'); if (_mdc) _mdc.onclick = () => vscode.postMessage({ type: 'clearModelsDirectory' }); }
 { const _ab = $('add-btn'); if (_ab) _ab.onclick = () => { const s = $('add-slug').value.trim(); if (s) vscode.postMessage({ type: 'addModel', slug: s }); }; }
@@ -1560,9 +1655,19 @@ $('banner-close').onclick = () => { $('banner').hidden = true; };
 { const _pp = $('persona-picker'); if (_pp) _pp.onchange = () => vscode.postMessage({ type: 'setPersona', id: _pp.value || null }); }
 { const _sp = $('skill-picker'); if (_sp) _sp.onchange = () => vscode.postMessage({ type: 'setSkill', id: _sp.value || null }); }
 { const _sr = $('skills-reload'); if (_sr) _sr.onclick = () => vscode.postMessage({ type: 'reloadSkills' }); }
-{ const _ss = $('skills-settings'); if (_ss) _ss.onclick = () => vscode.postMessage({ type: 'openSkillSettings' }); }
+{ const _ss = $('skills-settings'); if (_ss) _ss.onclick = () => openSettingsSection('skills'); }
 { const _mr = $('mcp-reload'); if (_mr) _mr.onclick = () => vscode.postMessage({ type: 'reloadMcp' }); }
-{ const _ms = $('mcp-settings'); if (_ms) _ms.onclick = () => vscode.postMessage({ type: 'openMcpSettings' }); }
+{ const _ms = $('mcp-settings'); if (_ms) _ms.onclick = () => openSettingsSection('mcp'); }
+{ const _mcs = $('mcp-config-save'); if (_mcs) _mcs.onclick = () => {
+  const ta = $('mcp-config-json');
+  if (!ta) return;
+  vscode.postMessage({ type: 'saveMcpConfig', json: ta.value });
+}; }
+{ const _sds = $('skill-dirs-save'); if (_sds) _sds.onclick = () => {
+  const ta = $('skill-dirs-json');
+  if (!ta) return;
+  vscode.postMessage({ type: 'saveSkillDirs', json: ta.value });
+}; }
 { const _psv = $('persona-save'); if (_psv) _psv.onclick = () => {
   const name = ($('persona-name')?.value || '').trim();
   const systemPrompt = ($('persona-prompt')?.value || '').trim();

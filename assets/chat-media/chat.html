@@ -21,6 +21,14 @@
     <div class="sidebar-search">
       <input id="sidebar-search" type="text" placeholder="Search chats…" autocomplete="off" />
     </div>
+    <section id="file-explorer" class="file-explorer" hidden aria-label="Workspace files">
+      <div class="file-explorer-head">
+        <span class="file-explorer-title">Explorer</span>
+        <button type="button" id="explorer-refresh" class="explorer-refresh" title="Refresh file tree">↻</button>
+      </div>
+      <div id="explorer-root-name" class="explorer-root-name"></div>
+      <div id="file-tree" class="file-tree"></div>
+    </section>
     <nav id="chat-list" class="chat-list" aria-label="Chat history"></nav>
     <div id="chat-actions-menu" hidden role="menu" aria-label="Chat actions"></div>
   </aside>
@@ -172,7 +180,7 @@
         <button type="button" id="params-apply">Apply parameters</button>
       </details>
 
-      <details class="settings-section">
+      <details class="settings-section" id="settings-skills-section">
         <summary>Skills</summary>
         <p class="settings-hint">Loads <code>SKILL.md</code> from configured directories (Cursor, Claude, Codex, <code>.fortress/skills</code>).</p>
         <label class="settings-row">Active skill
@@ -183,16 +191,24 @@
           <button type="button" id="skills-settings">Skill directories…</button>
         </div>
         <div id="skills-list" class="skills-list"></div>
+        <label class="settings-row settings-row-stack">Skill directory paths (JSON array)
+          <textarea id="skill-dirs-json" class="settings-json" rows="5" spellcheck="false" placeholder='[".fortress/skills"]'></textarea>
+        </label>
+        <button type="button" id="skill-dirs-save">Save skill directories</button>
       </details>
 
-      <details class="settings-section">
+      <details class="settings-section" id="settings-mcp-section">
         <summary>MCP servers</summary>
-        <p class="settings-hint">Stdio MCP servers expose tools in <b>Agent</b> mode. Configure in VS Code settings.</p>
+        <p class="settings-hint">Stdio MCP servers expose tools in <b>Agent</b> mode. Edit the JSON config below — saved inside FortressChat.</p>
         <div id="mcp-list" class="mcp-list"></div>
         <div class="settings-row-inline">
           <button type="button" id="mcp-reload">Reload MCP</button>
           <button type="button" id="mcp-settings">MCP settings…</button>
         </div>
+        <label class="settings-row settings-row-stack">MCP server config (JSON array)
+          <textarea id="mcp-config-json" class="settings-json" rows="8" spellcheck="false" placeholder='[{"name":"example","command":"npx","args":["-y","some-mcp"]}]'></textarea>
+        </label>
+        <button type="button" id="mcp-config-save">Save MCP config</button>
       </details>
 
       <details class="settings-section">

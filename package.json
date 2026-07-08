@@ -2,7 +2,7 @@
   "name": "fortress-chat-mac",
   "version": "0.3.5",
   "private": true,
-  "description": "FortressChat for Mac \u2014 local-first AI chat with US-only model governance",
+  "description": "FortressChat for Mac — local-first AI chat with US-only model governance",
   "main": "dist/main.js",
   "engines": {
     "node": ">=20 <23"
@@ -27,6 +27,7 @@
     "dist": "npm run build && electron-builder --mac --arm64"
   },
   "dependencies": {
+    "@xterm/xterm": "^5.5.0",
     "pdf-parse": "^1.1.1",
     "zod": "^3.23.0"
   },
