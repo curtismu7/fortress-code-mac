@@ -3,6 +3,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, wri
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
+import { patchMacMedia } from './mac-media-patch.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VENDOR = join(ROOT, 'vendor/fortress-code');
@@ -34,6 +35,8 @@ function listFiles(dir, base = dir) {
   return out.sort();
 }
 
+const MAC_OWNED = new Set(['chat.html', 'chat.js', 'chat.css']);
+
 /** Copy extension chat media and Google key validator; write parity manifest. */
 export function syncExtensionMedia() {
   const extRoot = resolveExtensionRoot();
@@ -44,6 +47,7 @@ export function syncExtensionMedia() {
 
   mkdirSync(ASSETS_MEDIA, { recursive: true });
   for (const name of readdirSync(mediaDir)) {
+    if (MAC_OWNED.has(name)) continue;
     const src = join(mediaDir, name);
     const dest = join(ASSETS_MEDIA, name);
     if (statSync(src).isDirectory()) cpSync(src, dest, { recursive: true });
@@ -52,8 +56,8 @@ export function syncExtensionMedia() {
   writeFileSync(MAC_VALIDATE, readFileSync(validateSrc));
 
   const files = {};
-  for (const rel of listFiles(mediaDir)) {
-    files[rel] = hashFile(join(mediaDir, rel));
+  for (const rel of listFiles(ASSETS_MEDIA)) {
+    files[rel] = hashFile(join(ASSETS_MEDIA, rel));
   }
 
   let sourceCommit = 'unknown';
@@ -70,6 +74,11 @@ export function syncExtensionMedia() {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   syncExtensionMedia();
+  const patchErrors = patchMacMedia();
+  if (patchErrors.length) {
+    console.error('Mac media patch failed:\n' + patchErrors.map((e) => `- ${e}`).join('\n'));
+    process.exit(1);
+  }
   const manifest = JSON.parse(readFileSync(PARITY_FILE, 'utf8'));
   console.log(`Synced extension media from ${manifest.sourceCommit} (${manifest.sourceRoot})`);
 }
