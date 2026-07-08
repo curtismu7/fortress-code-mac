@@ -1,11 +1,11 @@
 {
   "sourceRoot": "/Users/curtismuir/Development/fortress-code",
-  "sourceCommit": "a91ef5bc44e40bceb44b09c085b1087202b4b6b5",
-  "syncedAt": "2026-07-08T10:19:41.427Z",
+  "sourceCommit": "6a492dbfe0fce2e7e535fd254edec2a036dd34d6",
+  "syncedAt": "2026-07-08T10:23:03.154Z",
   "mediaFiles": {
-    "chat.css": "a4560542d4b0c8ff0d8fca4d59e21b23ab1b1175fb43ce8db9918cdb2dca91b1",
-    "chat.html": "ea66b5021c12697308fe2e5fcbfbab91df3a19ce58fcae0e1ad92f7a4c031789",
-    "chat.js": "4835f1baac0925e414a98511250047d92db387f823c1c5833358f33daf1b88fd",
+    "chat.css": "107071477c5420cb4139107d6e6b427f44cc6c9745218c26982c263ca0b7d9d9",
+    "chat.html": "4e345d66733aa718c88fe5d7d027fabbfb597e147105ea878822d22f61d2fcd3",
+    "chat.js": "a91ef72a7d85fb8803ccf02a7f1e6bccdf2fbb84b540c785e6d7bef5628ffaa3",
     "icon.svg": "f374df7f5c605ca3ae335e58f53612a16b3274594b3bf7d6b1c19bc637dab648",
     "vendor/auto-render.min.js": "e5372d199bcdae8b4de71d0f7ceba72a4ba12774a27c60a6f1f77d03b3228ee4",
     "vendor/fonts/KaTeX_AMS-Regular.woff2": "0cdd387c9590a1a9f9794560022dbb59654a7d86f187aa0c81495ad42d3a7308",
