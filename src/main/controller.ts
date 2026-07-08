@@ -58,6 +58,7 @@ export interface ControllerDeps {
   pickImage: () => Promise<{ mime: string; base64: string; name: string } | null>;
   pickModelsDirectory: () => Promise<string | null>;
   confirmModelsStorage: () => Promise<{ ok: true; dir: string } | { ok: false }>;
+  confirmDeleteModel: (displayName: string) => Promise<boolean>;
   approveEdit: (rel: string, isNew: boolean) => Promise<boolean>;
   approveCommand: (command: string) => Promise<boolean>;
   writeClipboard: (text: string) => void;
@@ -696,6 +697,26 @@ export class ChatController {
         case 'downloadModel': {
           if (!(await this.ensureModelsStorage())) return;
           await (await this.ensureClient()).download(String(m.catalogId));
+          return;
+        }
+        case 'cancelDownload': {
+          await (await this.ensureClient()).cancelDownload();
+          await this.pushStatus();
+          return;
+        }
+        case 'deleteModel': {
+          const catalogId = String(m.catalogId ?? '');
+          const entry = chatLocalEntries().find((e) => e.local?.catalogId === catalogId);
+          const name = entry?.displayName ?? catalogId;
+          if (!(await this.deps.confirmDeleteModel(name))) return;
+          try {
+            await (await this.ensureClient()).deleteModel(catalogId);
+            if (this.selected?.local?.catalogId === catalogId) this.selected = null;
+            await this.pushStatus();
+            this.deps.showInfo(`Deleted ${name}.`);
+          } catch (e) {
+            this.banner(`Could not delete model: ${e instanceof Error ? e.message : e}`);
+          }
           return;
         }
         case 'indexWorkspace': {

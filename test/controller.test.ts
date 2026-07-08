@@ -30,6 +30,7 @@ function makeDeps() {
     pickImage: vi.fn(async () => null),
     pickModelsDirectory: vi.fn(async () => null),
     confirmModelsStorage: vi.fn(async () => ({ ok: true as const, dir: '' })),
+    confirmDeleteModel: vi.fn(async () => true),
     approveEdit: vi.fn(async () => true),
     approveCommand: vi.fn(async () => true),
     writeClipboard: vi.fn(),

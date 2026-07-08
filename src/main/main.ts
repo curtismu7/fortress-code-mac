@@ -108,6 +108,18 @@ app.whenReady().then(async () => {
       });
       return r.filePaths[0] ?? null;
     },
+    confirmDeleteModel: async (displayName) => {
+      const r = await dialog.showMessageBox(mainWindow!, {
+        type: 'warning',
+        buttons: ['Delete', 'Cancel'],
+        defaultId: 1,
+        cancelId: 1,
+        title: 'Delete model',
+        message: `Delete ${displayName} from this Mac?`,
+        detail: 'This frees disk space. You can download the model again later.',
+      });
+      return r.response === 0;
+    },
     confirmModelsStorage: async () => {
       if (isModelsDirectoryConfirmed(settings)) {
         return { ok: true as const, dir: getModelsDirectory(settings) };
