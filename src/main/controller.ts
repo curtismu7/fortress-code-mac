@@ -29,7 +29,7 @@ import { discoverSkills, DEFAULT_SKILL_DIRS, type Skill } from '../../vendor/for
 import { FileMemento } from './fileMemento';
 import { SecretStore, OPENROUTER_KEY_ID, FIREWORKS_KEY_ID, GOOGLE_KEY_ID } from './secrets';
 import { validateGoogleApiKey } from './validateGoogleKey';
-import { defaultModelsDirectory, getModelsDirectory, setModelsDirectory, syncModelsDirectoryConfig } from './modelsDirectory';
+import { defaultModelsDirectory, getModelsDirectory, setModelsDirectory, syncModelsDirectoryConfig, isModelsDirectoryConfirmed, markModelsDirectoryConfirmed } from './modelsDirectory';
 import { executeMacTool, resolveInWorkspace } from './macTools';
 import { listWorkspaceDir } from './workspaceTree';
 
@@ -57,6 +57,7 @@ export interface ControllerDeps {
   pickDocuments: () => Promise<string[]>;
   pickImage: () => Promise<{ mime: string; base64: string; name: string } | null>;
   pickModelsDirectory: () => Promise<string | null>;
+  confirmModelsStorage: () => Promise<{ ok: true; dir: string } | { ok: false }>;
   approveEdit: (rel: string, isNew: boolean) => Promise<boolean>;
   approveCommand: (command: string) => Promise<boolean>;
   writeClipboard: (text: string) => void;
@@ -132,6 +133,7 @@ export class ChatController {
   /** Save models folder, sync daemon config, and reconnect. */
   private async applyModelsDirectory(dir: string): Promise<void> {
     setModelsDirectory(this.deps.settings, dir);
+    markModelsDirectoryConfirmed(this.deps.settings);
     this.postModelsDirectory();
     this.post({
       type: 'modelsDirectoryStatus',
@@ -153,6 +155,15 @@ export class ChatController {
       effective: custom || defaultModelsDirectory(),
       defaultPath: defaultModelsDirectory(),
     });
+  }
+
+  /** Ask once where to store models; returns false if the user cancels. */
+  private async ensureModelsStorage(): Promise<boolean> {
+    if (isModelsDirectoryConfirmed(this.deps.settings)) return true;
+    const result = await this.deps.confirmModelsStorage();
+    if (!result.ok) return false;
+    await this.applyModelsDirectory(result.dir);
+    return true;
   }
 
   private ragService(): RagService | null {
@@ -682,7 +693,11 @@ export class ChatController {
           return this.stopForPolicyViolation('Developer mode and cloud models are not allowed.');
         case 'selectDevModel':
           return this.stopForPolicyViolation('Developer mode and cloud models are not allowed.', String(m.slug || ''));
-        case 'downloadModel': await (await this.ensureClient()).download(String(m.catalogId)); return;
+        case 'downloadModel': {
+          if (!(await this.ensureModelsStorage())) return;
+          await (await this.ensureClient()).download(String(m.catalogId));
+          return;
+        }
         case 'indexWorkspace': {
           if (this.ragIndexing) return;
           this.ragIndexing = true;
@@ -829,6 +844,7 @@ export class ChatController {
   private async selectModel(id: string): Promise<void> {
     const entry = [...chatLocalEntries(), ...googleEntries()].find((e) => e.id === id);
     if (!entry) return;
+    if (entry.provider === 'local' && !(await this.ensureModelsStorage())) return;
     this.selected = entry;
     this.devModel = null;
     if (entry.provider === 'local') {

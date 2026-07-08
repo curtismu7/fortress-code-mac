@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { FileMemento } from './fileMemento';
 
 export const MODELS_DIR_KEY = 'fortressChat.modelsDirectory';
+export const MODELS_DIR_CONFIRMED_KEY = 'fortressChat.modelsDirectoryConfirmed';
 
 const DEFAULT_MODELS_DIR = join(homedir(), 'Library', 'Application Support', 'fortress-chat', 'models');
 
@@ -18,6 +19,17 @@ function modelsDirConfigFile(): string {
 /** Default local models folder when no custom path is set. */
 export function defaultModelsDirectory(): string {
   return DEFAULT_MODELS_DIR;
+}
+
+/** Whether the user has confirmed where local models are stored. */
+export function isModelsDirectoryConfirmed(settings: FileMemento): boolean {
+  if (settings.get(MODELS_DIR_CONFIRMED_KEY) === true) return true;
+  return !!getModelsDirectory(settings);
+}
+
+/** Mark models storage location as confirmed by the user. */
+export function markModelsDirectoryConfirmed(settings: FileMemento): void {
+  settings.update(MODELS_DIR_CONFIRMED_KEY, true);
 }
 
 /** Read configured models directory from Mac settings.json. */
