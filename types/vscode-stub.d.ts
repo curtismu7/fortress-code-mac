@@ -22,6 +22,7 @@ declare module 'vscode' {
 
   export const TextEditorRevealType: { InCenter: number };
   export const DiagnosticSeverity: { Error: string; Warning: string; Information: string; Hint: string };
+  export const ConfigurationTarget: { Global: number; Workspace: number; WorkspaceFolder: number };
   export const ProgressLocation: { Notification: number };
 
   export const workspace: {
@@ -30,7 +31,7 @@ declare module 'vscode' {
     applyEdit(edit: WorkspaceEdit): Thenable<boolean>;
     fs: { writeFile(uri: Uri, content: Buffer): Thenable<void> };
     asRelativePath(path: string): string;
-    getConfiguration(section?: string): { get<T>(key: string): T };
+    getConfiguration(section?: string): { get<T>(key: string, defaultValue?: T): T; update(key: string, value: unknown, target?: number): Thenable<void> };
     createFileSystemWatcher(pattern: string | { base: Uri; pattern: string }): { onDidChange(fn: (u: Uri) => void): void; onDidCreate(fn: (u: Uri) => void): void; onDidDelete(fn: (u: Uri) => void): void; dispose(): void };
     onDidChangeConfiguration(listener: (e: { affectsConfiguration(s: string): boolean }) => void): { dispose(): void };
     openTextDocument(path: string | Uri): Thenable<{ lineCount: number; lineAt(n: number): { text: string; range: Range }; getText(range?: Range): string; offsetAt(pos: { line: number; character: number }): number; fileName: string; languageId: string; uri: Uri }>;
