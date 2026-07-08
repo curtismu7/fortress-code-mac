@@ -11,6 +11,7 @@ import { openInAppTerminal } from './inAppTerminal';
 import { defaultModelsDirectory, getModelsDirectory, isModelsDirectoryConfirmed, markModelsDirectoryConfirmed, syncModelsDirectoryConfig } from './modelsDirectory';
 
 const MCP_KEY = 'fortressCode.mcpServers';
+const PINGONE_MCP_KEY = 'fortressChat.pingOneMcp';
 const SKILL_DIRS_KEY = 'fortressCode.skillDirectories';
 
 let controller: ChatController | null = null;
@@ -24,6 +25,7 @@ function settingsPath(userDataDir: string): string {
 /** Ensure default MCP/skills keys exist in settings.json. */
 function ensureDefaultSettings(settings: FileMemento): void {
   if (!settings.get(MCP_KEY)) settings.update(MCP_KEY, []);
+  if (!settings.get(PINGONE_MCP_KEY)) settings.update(PINGONE_MCP_KEY, { enabled: true, rootDomain: 'pingone.com' });
   if (!settings.get(SKILL_DIRS_KEY)) settings.update(SKILL_DIRS_KEY, [...DEFAULT_SKILL_DIRS]);
 }
 
