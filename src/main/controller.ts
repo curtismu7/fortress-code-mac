@@ -13,7 +13,7 @@ import { resolveDevTarget } from '../../vendor/fortress-code/packages/extension/
 import { DEV_PRESETS } from '../../vendor/fortress-code/packages/extension/src/devPresets';
 import { streamChat, type Usage } from '../../vendor/fortress-code/packages/extension/src/providers/stream';
 import { runAgentTurn } from '../../vendor/fortress-code/packages/extension/src/agent/loop';
-import { buildContextPreamble, parseMentions, capContent, type ChatContext, type AttachedFile } from '../../vendor/fortress-code/packages/extension/src/context';
+import { buildContextPreamble, parseMentions, capContent, hasAttachedContext, contextAttachmentHint, type ChatContext, type AttachedFile } from '../../vendor/fortress-code/packages/extension/src/context';
 import { Prefs } from '../../vendor/fortress-code/packages/extension/src/prefs';
 import { searchChats } from '../../vendor/fortress-code/packages/extension/src/chatSearch';
 import { exportMarkdown } from '../../vendor/fortress-code/packages/extension/src/exportChat';
@@ -410,8 +410,9 @@ export class ChatController {
     }
     let codebase: ChatContext['codebase'] = null;
     const rag = this.ragService();
+    let embedSwap = false;
     if (rag && parseMentions(userText).includes('codebase') && this.client) {
-      try { codebase = await rag.retrieveHits(this.client, userText); }
+      try { codebase = await rag.retrieveHits(this.client, userText); embedSwap = true; }
       catch (e) { this.banner(`@codebase retrieval failed: ${e instanceof Error ? e.message : e}`); }
     }
     let docs: ChatContext['docs'] = null;
@@ -419,10 +420,11 @@ export class ChatController {
       if (!this.docsService().hasIndex()) {
         this.banner('No documents indexed yet — use Settings → Documents → Add documents.');
       } else if (this.client) {
-        try { docs = await this.docsService().retrieveHits(this.client, userText); }
+        try { docs = await this.docsService().retrieveHits(this.client, userText); embedSwap = true; }
         catch (e) { this.banner(`@docs retrieval failed: ${e instanceof Error ? e.message : e}`); }
       }
     }
+    if (embedSwap) await this.restartLocalIfSelected();
     const images = this.pendingImages.length ? [...this.pendingImages] : undefined;
     this.pendingImages = [];
     return { file: null, selection: null, mentions, codebase, docs, images };
@@ -870,6 +872,12 @@ export class ChatController {
     const session = this.store.active();
     const ctx = await this.collectContext(text);
     const preamble = buildContextPreamble(ctx);
+    const root = this.root;
+    if (!hasAttachedContext(ctx)) {
+      const agentCapable = this.devMode && this.devModel ? true : !!this.selected?.agentCapable;
+      const hintMsg = contextAttachmentHint({ hasFolder: !!root, agentMode: this.agentMode, agentCapable });
+      if (hintMsg) this.hint(hintMsg);
+    }
     const sys = this.systemPromptForChat() + (preamble ? '\n\n---\n' + preamble : '');
     const preTurnLen = session.messages.length;
     session.addUser(text);
@@ -878,7 +886,6 @@ export class ChatController {
     this.postGenerating(true);
     let usage: Usage | null = null;
     const checkpoint = this.agentMode ? new AgentCheckpoint() : null;
-    const root = this.root;
     try {
       if (this.compareModelId) {
         const entry = loadPolicy().find((e) => e.id === this.compareModelId);
