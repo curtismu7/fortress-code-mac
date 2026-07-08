@@ -384,6 +384,18 @@ export class ChatController {
     } catch { /* daemon gone */ }
   }
 
+  /** Reload the selected local chat model after a temporary embed swap. */
+  private async restartLocalIfSelected(): Promise<void> {
+    if (this.selected?.provider !== 'local' || !this.client) return;
+    try {
+      const r = await this.client.start(this.selected.local!.catalogId);
+      if (!r.ok) this.post({ type: 'startRejected', rejection: r.rejection, modelId: this.selected.id });
+    } catch (e) {
+      this.banner(String(e));
+    }
+    await this.pushStatus();
+  }
+
   private async pushStatus(): Promise<void> {
     if (!this.client) {
       this.post({ type: 'state', status: this.cloudFallbackStatus(), selectedId: this.selected?.id ?? null });
@@ -596,6 +608,7 @@ export class ChatController {
             const first = result.errors[0]!;
             this.banner(`Could not index ${result.errors.length} file(s): ${first.reason}`);
           }
+          await this.restartLocalIfSelected();
           this.post({ type: 'docsStatus', stats: this.docsService().stats(), lastIndex: result }); return;
         }
         case 'attachImage': {
