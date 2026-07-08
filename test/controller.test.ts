@@ -29,6 +29,7 @@ function makeDeps() {
     pickDocuments: vi.fn(async () => []),
     pickImage: vi.fn(async () => null),
     pickModelsDirectory: vi.fn(async () => null),
+    confirmModelsStorage: vi.fn(async () => ({ ok: true as const, dir: '' })),
     approveEdit: vi.fn(async () => true),
     approveCommand: vi.fn(async () => true),
     writeClipboard: vi.fn(),
@@ -70,6 +71,22 @@ describe('ChatController', () => {
     const policy = posts.find((p) => p.type === 'policy');
     expect(policy.google?.length).toBeGreaterThan(0);
     expect(policy.local.some((e: { id: string }) => e.id === 'nomic-embed-text-v1.5')).toBe(false);
+    c.dispose();
+  });
+
+  it('selectModel prompts for models storage before first local model', async () => {
+    const { deps } = makeDeps();
+    const client = {
+      status: async () => ({ state: 'idle', modelId: null, endpoint: null, download: null, crashLog: null, ram: { totalBytes: 1, availableBytes: 1 }, binaryInstalled: true, downloadedModelIds: ['gemma-3-1b-qat'], downloadError: null, embed: { state: 'idle', modelId: null, endpoint: null } }),
+      shutdown: async () => {},
+      start: vi.fn(async () => ({ ok: true })),
+      foreignKill: vi.fn(async () => {}),
+    };
+    deps.connect.mockResolvedValue(client as any);
+    const c = new ChatController(deps);
+    await c.init();
+    await c.onMessage({ type: 'selectModel', id: 'gemma-3-1b-qat' });
+    expect(deps.confirmModelsStorage).toHaveBeenCalled();
     c.dispose();
   });
 

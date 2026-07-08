@@ -8,6 +8,7 @@ import { SecretStore } from './secrets';
 import { FileMemento } from './fileMemento';
 import { openInAppEditor } from './inAppEditor';
 import { openInAppTerminal } from './inAppTerminal';
+import { defaultModelsDirectory, getModelsDirectory, isModelsDirectoryConfirmed, markModelsDirectoryConfirmed, syncModelsDirectoryConfig } from './modelsDirectory';
 
 const MCP_KEY = 'fortressCode.mcpServers';
 const SKILL_DIRS_KEY = 'fortressCode.skillDirectories';
@@ -102,8 +103,40 @@ app.whenReady().then(async () => {
       const r = await dialog.showOpenDialog(mainWindow!, {
         properties: ['openDirectory', 'createDirectory'],
         title: 'Choose local models folder',
+        defaultPath: getModelsDirectory(settings) || defaultModelsDirectory(),
+        message: 'Downloaded GGUF models are stored here.',
       });
       return r.filePaths[0] ?? null;
+    },
+    confirmModelsStorage: async () => {
+      if (isModelsDirectoryConfirmed(settings)) {
+        return { ok: true as const, dir: getModelsDirectory(settings) };
+      }
+      const def = defaultModelsDirectory();
+      const { response } = await dialog.showMessageBox(mainWindow!, {
+        type: 'question',
+        buttons: ['Use Default Location', 'Choose Folder…', 'Cancel'],
+        defaultId: 0,
+        cancelId: 2,
+        title: 'Models storage location',
+        message: 'Where should FortressChat store downloaded models?',
+        detail: `Default folder:\n${def}\n\nYou can change this later in Settings → Local models.`,
+      });
+      if (response === 2) return { ok: false as const };
+      if (response === 0) {
+        markModelsDirectoryConfirmed(settings);
+        syncModelsDirectoryConfig(settings);
+        return { ok: true as const, dir: '' };
+      }
+      const picker = await dialog.showOpenDialog(mainWindow!, {
+        properties: ['openDirectory', 'createDirectory'],
+        title: 'Choose local models folder',
+        defaultPath: def,
+        message: 'Downloaded GGUF models will be saved in this folder.',
+      });
+      const dir = picker.filePaths[0];
+      if (!dir) return { ok: false as const };
+      return { ok: true as const, dir };
     },
     approveEdit: async (rel, isNew) => {
       const r = await dialog.showMessageBox(mainWindow!, {
