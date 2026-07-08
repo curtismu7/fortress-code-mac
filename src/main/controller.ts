@@ -102,6 +102,7 @@ export class ChatController {
   private post(msg: unknown): void { this.deps.post(msg); }
   private banner(message: string): void { this.post({ type: 'error', message: (message && message.trim()) ? message : 'Fortress Code error (no details)' }); }
   private hint(message: string): void { this.post({ type: 'hint', message: (message && message.trim()) ? message : '' }); }
+  private postGenerating(active: boolean): void { this.post({ type: 'generating', active }); }
 
   private async ensureClient(): Promise<DaemonClient> {
     if (!this.client) this.client = await this.deps.connect();
@@ -232,6 +233,7 @@ export class ChatController {
     this.postAgentUndo();
     this.postChatMode();
     this.post({ type: 'context', chips: [] });
+    this.post({ type: 'generating', active: !!this.generating });
   }
 
   async init(): Promise<void> {
@@ -731,7 +733,7 @@ export class ChatController {
     if (this.generating) { this.banner('Still generating — press Stop first.'); this.post({ type: 'restoreInput', text }); return; }
     let target: ResolvedTarget;
     try { target = await this.currentTarget(); }
-    catch (e) { this.banner(String(e instanceof Error ? e.message : e)); this.post({ type: 'restoreInput', text }); return; }
+    catch (e) { this.banner(String(e instanceof Error ? e.message : e)); this.post({ type: 'restoreInput', text }); this.postGenerating(false); return; }
     const params = this.prefs.params();
     if (Object.keys(params).length) target = { ...target, bodyExtra: { ...target.bodyExtra, ...params } };
     const session = this.store.active();
@@ -742,6 +744,7 @@ export class ChatController {
     session.addUser(text);
     this.post({ type: 'history', messages: session.messages });
     this.generating = new AbortController();
+    this.postGenerating(true);
     let usage: Usage | null = null;
     const checkpoint = this.agentMode ? new AgentCheckpoint() : null;
     const root = this.root;
@@ -812,6 +815,7 @@ export class ChatController {
       this.banner(String(e instanceof Error ? e.message : e));
     } finally {
       this.generating = null;
+      this.postGenerating(false);
     }
   }
 
