@@ -101,6 +101,7 @@ export class ChatController {
 
   private post(msg: unknown): void { this.deps.post(msg); }
   private banner(message: string): void { this.post({ type: 'error', message: (message && message.trim()) ? message : 'Fortress Code error (no details)' }); }
+  private hint(message: string): void { this.post({ type: 'hint', message: (message && message.trim()) ? message : '' }); }
 
   private async ensureClient(): Promise<DaemonClient> {
     if (!this.client) this.client = await this.deps.connect();
@@ -211,6 +212,7 @@ export class ChatController {
     this.post({ type: 'prefs', prompts: this.prefs.prompts(), params: this.prefs.params() });
     this.post({ type: 'personas', personas: this.prefs.personas() });
     this.post({ type: 'skills', skills: this.skills });
+    this.post({ type: 'workspace', open: !!this.root });
     this.post({ type: 'projectRules', path: loadProjectRules(this.root ?? undefined).path ?? defaultRulesRel(this.root ?? undefined) });
     this.post({ type: 'memory', data: this.memoryData() });
     this.post({ type: 'folders', folders: this.store.listFolders() });
@@ -260,6 +262,7 @@ export class ChatController {
     this.skillsWatcherStarted = false;
     this.root = root;
     this.rag = null;
+    this.post({ type: 'workspace', open: true });
     this.refreshSkills();
     const rag = this.ragService();
     if (rag) this.post({ type: 'ragStatus', stats: rag.stats(), indexing: this.ragIndexing });
@@ -453,6 +456,10 @@ export class ChatController {
         case 'newChat': {
           this.generating?.abort();
           const agent = !!m.agent;
+          if (agent && !this.root) {
+            this.hint('Please use File → Open Folder to use New agent.');
+            return;
+          }
           this.store.newChat(agent);
           this.agentMode = agent; this.chatMode = agent ? 'agent' : 'ask';
           this.post({ type: 'history', messages: [] });
