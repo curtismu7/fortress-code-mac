@@ -809,6 +809,7 @@ code.inl { background: var(--vscode-textCodeBlock-background, #2a2a2a); padding:
   color: var(--fc-text);
 }
 .sidebar-search input::placeholder { color: var(--fc-muted); }
+.file-explorer[hidden] { display: none !important; }
 .file-explorer {
   flex: 0 1 42%;
   min-height: 120px;

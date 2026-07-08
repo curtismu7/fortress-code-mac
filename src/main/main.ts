@@ -133,9 +133,14 @@ app.whenReady().then(async () => {
 
   controller.setDevMode(false);
   ipcMain.on('fc', (_e, m) => void controller!.onMessage(m));
-  mainWindow.webContents.on('did-finish-load', () => void controller!.init());
-  const last = settings.get('fortressCode.folder');
-  if (typeof last === 'string') { controller.setFolder(last); mainWindow.setTitle(`Fortress Code — ${last}`); }
+  mainWindow.webContents.on('did-finish-load', () => {
+    const last = settings.get('fortressCode.folder');
+    if (typeof last === 'string') {
+      controller!.setFolder(last);
+      mainWindow!.setTitle(`Fortress Code — ${last}`);
+    }
+    void controller!.init();
+  });
 
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: 'appMenu' },

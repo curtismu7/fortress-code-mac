@@ -256,17 +256,28 @@ export class ChatController {
     this.postMcpStatus();
   }
 
+  /** Push workspace open state and sidebar file tree (Mac-only UI). */
+  private postShellState(): void {
+    this.post({ type: 'workspace', open: !!this.root });
+    this.postWorkspaceExplorer();
+  }
+
   private postWorkspaceExplorer(): void {
     if (!this.root) {
       this.post({ type: 'workspaceExplorer', open: false });
       return;
     }
-    this.post({
-      type: 'workspaceExplorer',
-      open: true,
-      rootName: basename(this.root),
-      entries: listWorkspaceDir(this.root, ''),
-    });
+    try {
+      this.post({
+        type: 'workspaceExplorer',
+        open: true,
+        rootName: basename(this.root),
+        entries: listWorkspaceDir(this.root, ''),
+      });
+    } catch (e) {
+      this.post({ type: 'workspaceExplorer', open: false });
+      this.banner(`Could not read workspace folder: ${e instanceof Error ? e.message : e}`);
+    }
   }
 
   private async pushFullState(): Promise<void> {
@@ -274,8 +285,7 @@ export class ChatController {
     this.post({ type: 'prefs', prompts: this.prefs.prompts(), params: this.prefs.params() });
     this.post({ type: 'personas', personas: this.prefs.personas() });
     this.post({ type: 'skills', skills: this.skills });
-    this.post({ type: 'workspace', open: !!this.root });
-    this.postWorkspaceExplorer();
+    this.postShellState();
     this.post({ type: 'projectRules', path: loadProjectRules(this.root ?? undefined).path ?? defaultRulesRel(this.root ?? undefined) });
     this.post({ type: 'memory', data: this.memoryData() });
     this.post({ type: 'folders', folders: this.store.listFolders() });
@@ -308,6 +318,7 @@ export class ChatController {
       } catch (e) {
         if (!this.deps.secrets.get(GOOGLE_KEY_ID)) {
           this.banner(`Could not start the Fortress Code daemon: ${e}`);
+          this.postShellState();
           return;
         }
       }
@@ -318,6 +329,7 @@ export class ChatController {
       await this.pushFullState();
     } catch (e) {
       this.banner(`Could not start the Fortress Code daemon: ${e}`);
+      this.postShellState();
     }
   }
 
@@ -328,8 +340,7 @@ export class ChatController {
     this.skillsWatcherStarted = false;
     this.root = root;
     this.rag = null;
-    this.post({ type: 'workspace', open: true });
-    this.postWorkspaceExplorer();
+    this.postShellState();
     this.refreshSkills();
     const rag = this.ragService();
     if (rag) this.post({ type: 'ragStatus', stats: rag.stats(), indexing: this.ragIndexing });
