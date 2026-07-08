@@ -445,15 +445,21 @@ export class ChatController {
     };
   }
 
-  /** Unload the local chat llama-server when switching to cloud routing. */
-  private async unloadLocalModel(): Promise<void> {
+  /** Stop chat and embedding llama-server processes managed by FortressChat. */
+  private async unloadAllManagedModels(): Promise<void> {
     if (!this.client) return;
+    try { await this.client.embedStop(); } catch { /* embed idle or daemon gone */ }
     try {
       const status = await this.client.status();
       if (status.state === 'ready' || status.state === 'loading-model' || status.state === 'starting') {
         await this.client.stop();
       }
     } catch { /* daemon gone */ }
+  }
+
+  /** Unload the local chat llama-server when switching to cloud routing. */
+  private async unloadLocalModel(): Promise<void> {
+    await this.unloadAllManagedModels();
   }
 
   /** Reload the selected local chat model after a temporary embed swap. */
@@ -686,6 +692,12 @@ export class ChatController {
         }
         case 'installBinary': await (await this.ensureClient()).installBinary(); return;
         case 'killForeign': await (await this.ensureClient()).foreignKill(m.pids); return;
+        case 'retryModelAfterKill': return await this.retryModelAfterKill(m.pids, String(m.modelId ?? ''));
+        case 'unloadModels':
+          await this.unloadAllManagedModels();
+          await this.pushStatus();
+          this.deps.showInfo('Unloaded FortressChat models to free memory.');
+          return;
         case 'excludeContext': this.excluded.add(String(m.id)); return;
         case 'insertCode': this.deps.writeClipboard(String(m.code)); this.deps.showInfo('Code copied to clipboard.'); return;
         case 'applyCode': this.deps.writeClipboard(String(m.code)); this.deps.showInfo('Code copied to clipboard — paste into your editor to apply.'); return;
@@ -810,6 +822,7 @@ export class ChatController {
     this.devModel = null;
     if (entry.provider === 'local') {
       if (!this.client) this.client = await this.deps.connect();
+      await this.unloadAllManagedModels();
       try {
         const r = await this.client.start(entry.local!.catalogId);
         if (!r.ok) this.post({ type: 'startRejected', rejection: r.rejection, modelId: id });
@@ -819,11 +832,32 @@ export class ChatController {
         else this.banner(msg);
       }
     } else {
-      await this.unloadLocalModel();
+      await this.unloadAllManagedModels();
     }
     await this.pushStatus();
     this.postContextWindow();
     this.postChatMode();
+  }
+
+  /** Kill foreign llama-server processes then retry starting the selected model. */
+  private async retryModelAfterKill(pids: unknown, modelId: string): Promise<void> {
+    const killPids = (Array.isArray(pids) ? pids : []).map((p) => Number(p)).filter((p) => p > 0);
+    if (!modelId || !killPids.length) {
+      this.banner('Nothing to retry — pick a model again.');
+      return;
+    }
+    try {
+      this.banner('Stopping other models…');
+      await (await this.ensureClient()).foreignKill(killPids);
+      await this.unloadAllManagedModels();
+      await new Promise((r) => setTimeout(r, 2000));
+      this.banner('Starting model…');
+      await this.selectModel(modelId);
+      const status = this.client ? await this.client.status().catch(() => null) : null;
+      if (status?.state === 'ready') this.post({ type: 'clearBanner' });
+    } catch (e) {
+      this.banner(`Could not restart model: ${e instanceof Error ? e.message : e}`);
+    }
   }
 
   private handleAddModel(slug: string): void {

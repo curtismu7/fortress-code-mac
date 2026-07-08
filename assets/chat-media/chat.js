@@ -1038,7 +1038,7 @@ function renderRejection(r, modelId) {
   const hasForeign = r.foreign.length > 0;
   const msg = hasForeign
     ? `Not enough memory (~${need} GB needed, ${have} GB free). Another llama-server is using RAM.`
-    : `Not enough memory (~${need} GB needed, ${have} GB free). Try a smaller model.`;
+    : `Not enough memory (~${need} GB needed, ${have} GB free). Quit other apps, use Fortress → Unload All Models, or pick a smaller model.`;
   $('banner-text').innerHTML = `${esc(msg)}${hasForeign ? `<ul style="margin:8px 0 0;padding-left:18px">${rows}</ul>` : ''}`;
   const retry = $('banner-retry');
   if (retry) {

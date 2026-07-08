@@ -158,6 +158,7 @@ app.whenReady().then(async () => {
         dialog.showErrorBox('FortressChat — not allowed', 'Developer mode is disabled. FortressChat supports local US models only.');
       } },
       { label: 'Edit Settings (MCP + Skills)…', click: () => openSettingsPanel('mcp') },
+      { label: 'Unload All Models', click: () => void controller?.onMessage({ type: 'unloadModels' }) },
       { label: 'Reload MCP Servers', click: () => void controller?.onMessage({ type: 'reloadMcp' }) },
       { label: 'Reload Skills', click: () => void controller?.onMessage({ type: 'reloadSkills' }) },
     ] },
