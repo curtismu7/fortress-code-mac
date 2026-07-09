@@ -202,16 +202,30 @@
 
       <details class="settings-section" id="settings-mcp-section">
         <summary>MCP servers</summary>
-        <p class="settings-hint">Stdio MCP servers expose tools in <b>Agent</b> mode. Edit the JSON config below — saved inside FortressChat.</p>
+        <p class="settings-hint"><b>PingOne MCP</b> is enabled by default (APIs hosted on PingOne). Install the client: <code>brew install pingidentity/tap/pingone-mcp-server</code>. Create a worker app with PKCE and redirect <code>http://127.0.0.1:7464/callback</code>.</p>
         <div id="mcp-list" class="mcp-list"></div>
         <div class="settings-row-inline">
           <button type="button" id="mcp-reload">Reload MCP</button>
-          <button type="button" id="mcp-settings">MCP settings…</button>
+          <button type="button" id="mcp-settings">More MCP settings…</button>
         </div>
-        <label class="settings-row settings-row-stack">MCP server config (JSON array)
-          <textarea id="mcp-config-json" class="settings-json" rows="8" spellcheck="false" placeholder='[{"name":"example","command":"npx","args":["-y","some-mcp"]}]'></textarea>
+        <label class="settings-row">PingOne environment ID
+          <input id="pingone-env-id" type="text" placeholder="UUID" autocomplete="off" spellcheck="false" />
         </label>
-        <button type="button" id="mcp-config-save">Save MCP config</button>
+        <label class="settings-row">PingOne worker client ID
+          <input id="pingone-client-id" type="text" placeholder="UUID" autocomplete="off" spellcheck="false" />
+        </label>
+        <label class="settings-row">PingOne root domain
+          <input id="pingone-root-domain" type="text" placeholder="pingone.com" autocomplete="off" spellcheck="false" />
+        </label>
+        <label class="settings-row settings-row-inline">
+          <input id="pingone-mcp-enabled" type="checkbox" checked />
+          Enable PingOne MCP (built-in)
+        </label>
+        <button type="button" id="pingone-mcp-save">Save PingOne MCP</button>
+        <label class="settings-row settings-row-stack">Additional MCP servers (JSON array)
+          <textarea id="mcp-config-json" class="settings-json" rows="6" spellcheck="false" placeholder='[{"name":"example","command":"npx","args":["-y","some-mcp"]}]'></textarea>
+        </label>
+        <button type="button" id="mcp-config-save">Save additional MCP config</button>
       </details>
 
       <details class="settings-section">

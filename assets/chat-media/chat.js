@@ -352,13 +352,14 @@ function renderActionSub(body, q) {
     if (!servers.length) {
       const hint = document.createElement('div');
       hint.className = 'action-hint';
-      hint.textContent = 'No MCP servers configured. Add fortressChat.mcpServers in VS Code settings.';
+      hint.textContent = 'No MCP servers active. Open Settings → MCP servers to configure PingOne or add servers.';
       body.appendChild(hint);
     } else {
       servers.forEach((s) => {
         const status = s.connected ? '●' : '○';
         const err = s.error ? ` — ${s.error}` : '';
-        const item = { label: s.name, icon: status, hint: `${s.tools} tool${s.tools === 1 ? '' : 's'}${err}` };
+        const tag = s.builtin ? ' (built-in)' : '';
+        const item = { label: `${s.name}${tag}`, icon: status, hint: `${s.tools} tool${s.tools === 1 ? '' : 's'}${err}` };
         const row = actionRow(item, false, false);
         row.disabled = true;
         body.appendChild(row);
@@ -918,6 +919,15 @@ window.addEventListener('message', (e) => {
     if (mcpTa) mcpTa.value = JSON.stringify(m.mcp ?? [], null, 2);
     const skTa = $('skill-dirs-json');
     if (skTa) skTa.value = JSON.stringify(m.skillDirs ?? [], null, 2);
+    const po = m.pingOne || {};
+    const envEl = $('pingone-env-id');
+    if (envEl) envEl.value = po.environmentId || '';
+    const clientEl = $('pingone-client-id');
+    if (clientEl) clientEl.value = po.clientId || '';
+    const rootEl = $('pingone-root-domain');
+    if (rootEl) rootEl.value = po.rootDomain || 'pingone.com';
+    const enEl = $('pingone-mcp-enabled');
+    if (enEl) enEl.checked = po.enabled !== false;
   }
   if (m.type === 'devMode') {
     window.__dev = m.on;
@@ -1333,7 +1343,8 @@ function renderMcpList() {
   box.innerHTML = servers.map((s) => {
     const status = s.connected ? 'connected' : 'offline';
     const err = s.error ? ` — ${esc(s.error)}` : '';
-    return `<div class="mcp-item"><span>${s.connected ? '●' : '○'} ${esc(s.name)}</span><span class="settings-hint">${status} · ${s.tools} tool(s)${err}</span></div>`;
+    const tag = s.builtin ? ' · built-in' : '';
+    return `<div class="mcp-item"><span>${s.connected ? '●' : '○'} ${esc(s.name)}</span><span class="settings-hint">${status} · ${s.tools} tool(s)${tag}${err}</span></div>`;
   }).join('');
 }
 
@@ -1704,6 +1715,15 @@ $('banner-close').onclick = () => { $('banner').hidden = true; };
   const ta = $('mcp-config-json');
   if (!ta) return;
   vscode.postMessage({ type: 'saveMcpConfig', json: ta.value });
+}; }
+{ const _pos = $('pingone-mcp-save'); if (_pos) _pos.onclick = () => {
+  vscode.postMessage({
+    type: 'savePingOneMcp',
+    enabled: !!$('pingone-mcp-enabled')?.checked,
+    environmentId: $('pingone-env-id')?.value || '',
+    clientId: $('pingone-client-id')?.value || '',
+    rootDomain: $('pingone-root-domain')?.value || 'pingone.com',
+  });
 }; }
 { const _sds = $('skill-dirs-save'); if (_sds) _sds.onclick = () => {
   const ta = $('skill-dirs-json');

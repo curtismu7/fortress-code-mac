@@ -19,7 +19,8 @@ import { searchChats } from '../../vendor/fortress-code/packages/extension/src/c
 import { exportMarkdown } from '../../vendor/fortress-code/packages/extension/src/exportChat';
 import { MemoryStore } from '../../vendor/fortress-code/packages/extension/src/memory';
 import { DocsService } from '../../vendor/fortress-code/packages/extension/src/docsService';
-import { McpClient, parseMcpConfigs, type McpServerConfig } from '../../vendor/fortress-code/packages/extension/src/mcpClient';
+import { McpClient, type McpServerConfig } from '../../vendor/fortress-code/packages/extension/src/mcpClient';
+import { resolveMcpConfigs } from '../../vendor/fortress-code/packages/extension/src/mcpDefaults';
 import { webSearch } from '../../vendor/fortress-code/packages/extension/src/webSearch';
 import { speakText } from '../../vendor/fortress-code/packages/extension/src/voice';
 import { loadProjectRules, defaultRulesRel } from '../../vendor/fortress-code/packages/extension/src/projectRules';
@@ -36,6 +37,7 @@ import { listWorkspaceDir } from './workspaceTree';
 const SYSTEM_PROMPT = 'You are Fortress Code, a helpful local coding assistant.';
 const DEV_MODE_KEY = 'fortressCode.devMode';
 const MCP_KEY = 'fortressCode.mcpServers';
+const PINGONE_MCP_KEY = 'fortressChat.pingOneMcp';
 const SKILL_DIRS_KEY = 'fortressCode.skillDirectories';
 const AUTO_APPROVE_KEY = 'fortressChat.autoApprove';
 
@@ -188,7 +190,7 @@ export class ChatController {
   private memoryData(): ReturnType<MemoryStore['load']> { return new MemoryStore(this.memoryPath()).load(); }
 
   private mcpConfigs(): McpServerConfig[] {
-    return parseMcpConfigs(this.deps.settings.get(MCP_KEY));
+    return resolveMcpConfigs(this.deps.settings.get(MCP_KEY), this.deps.settings.get(PINGONE_MCP_KEY));
   }
 
   private skillDirectories(): string[] {
@@ -217,7 +219,7 @@ export class ChatController {
     this.post({
       type: 'mcpStatus',
       servers: this.mcpClients.map((c) => ({
-        name: c.serverName(), connected: c.isConnected(), tools: c.toolCount(), error: c.error(),
+        name: c.serverName(), connected: c.isConnected(), tools: c.toolCount(), error: c.error(), builtin: c.isBuiltin(),
       })),
     });
   }
@@ -627,9 +629,20 @@ export class ChatController {
           this.post({
             type: 'appSettings',
             mcp: this.deps.settings.get(MCP_KEY) ?? [],
+            pingOne: this.deps.settings.get(PINGONE_MCP_KEY) ?? { enabled: true, rootDomain: 'pingone.com' },
             skillDirs: this.skillDirectories(),
           });
           return;
+        case 'savePingOneMcp': {
+          const enabled = m.enabled !== false;
+          const environmentId = String(m.environmentId ?? '').trim();
+          const clientId = String(m.clientId ?? '').trim();
+          const rootDomain = String(m.rootDomain ?? 'pingone.com').trim() || 'pingone.com';
+          this.deps.settings.update(PINGONE_MCP_KEY, { enabled, environmentId, clientId, rootDomain });
+          await this.initMcp();
+          this.deps.showInfo('PingOne MCP settings saved.');
+          return;
+        }
         case 'saveMcpConfig': {
           let parsed: unknown;
           try { parsed = JSON.parse(String(m.json ?? '')); }
