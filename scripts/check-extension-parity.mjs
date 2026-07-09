@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS_MEDIA = join(ROOT, 'assets/chat-media');
-const PARITY_FILE = join(ASSETS_MEDIA, '.parity.json');
+const PARITY_MANIFEST = '.parity.json';
+const PARITY_FILE = join(ASSETS_MEDIA, PARITY_MANIFEST);
 const MAC_VALIDATE = join(ROOT, 'src/main/validateGoogleKey.ts');
 
 /** Return sha256 hex for a file path. */
@@ -22,6 +23,7 @@ export function checkExtensionParity() {
   const mismatches = [];
 
   for (const [rel, expected] of Object.entries(manifest.mediaFiles ?? {})) {
+    if (rel === PARITY_MANIFEST) continue;
     const path = join(ASSETS_MEDIA, rel);
     try {
       if (hashFile(path) !== expected) mismatches.push(rel);

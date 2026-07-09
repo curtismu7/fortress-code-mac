@@ -8,7 +8,8 @@ import { patchMacMedia } from './mac-media-patch.mjs';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VENDOR = join(ROOT, 'vendor/fortress-code');
 const ASSETS_MEDIA = join(ROOT, 'assets/chat-media');
-const PARITY_FILE = join(ASSETS_MEDIA, '.parity.json');
+const PARITY_MANIFEST = '.parity.json';
+const PARITY_FILE = join(ASSETS_MEDIA, PARITY_MANIFEST);
 const MAC_VALIDATE = join(ROOT, 'src/main/validateGoogleKey.ts');
 
 /** Prefer a sibling fortress-code checkout; fall back to the vendor submodule. */
@@ -57,6 +58,7 @@ export function syncExtensionMedia() {
 
   const files = {};
   for (const rel of listFiles(ASSETS_MEDIA)) {
+    if (rel === PARITY_MANIFEST) continue;
     files[rel] = hashFile(join(ASSETS_MEDIA, rel));
   }
 
