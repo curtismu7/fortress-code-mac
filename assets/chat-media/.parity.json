@@ -1,10 +1,10 @@
 {
   "sourceRoot": "/Users/curtismuir/Development/fortress-chat-mac-sync/vendor/fortress-code",
   "sourceCommit": "ee908a92c56b9f817c0efa36c4c22e3e4acdd81f",
-  "syncedAt": "2026-07-08T22:55:48.332738Z",
+  "syncedAt": "2026-07-09T00:02:02.495409Z",
   "mediaFiles": {
-    "chat.css": "f1b66515cd7ff26ff72000c1d8d868f1af5913cf88532d387149213ea047bfe3",
-    "chat.html": "8b6e4235c333c3778c6db6a6cfb516734998c996084faa128fd94fe591c2e179",
+    "chat.css": "2e868c7b152796856a5f086e4c080e031ba872798e7b5c7a4ee7b34f63ef306b",
+    "chat.html": "11122f7abfc7c9ccd85cfd68cc5a098c1cc59b0175e71891cece186535ab41fd",
     "chat.js": "c0acbf15c40e19aef1be4307226e99eb4b38307f801183c86cef8b82ee9cf2d0",
     "icon.svg": "f374df7f5c605ca3ae335e58f53612a16b3274594b3bf7d6b1c19bc637dab648",
     "vendor/auto-render.min.js": "e5372d199bcdae8b4de71d0f7ceba72a4ba12774a27c60a6f1f77d03b3228ee4",
